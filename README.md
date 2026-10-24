@@ -1,66 +1,85 @@
-# 看市场 · 简明情景模板
+# 看市场 · 市场解读与情景模板
 
 在线访问：https://jonshaw-git.github.io/market-watch/
 
 公开源码：https://github.com/JonShaw-Git/market-watch
 
-网页可在手机和电脑浏览器直接打开，无需登录。
-
-
-版本：2026.10.24，替换此前复杂的仪表盘设计。
+网页可在手机和电脑浏览器直接打开，无需登录。模板版本2.0；本期行情观察日为2026年10月23日。
 
 ## 页面
 
-首屏为本期视角与4张行情卡，采用浅蓝、浅紫与白色卡片。下方保留市场解读（日/周）、研报观点、异动点评。每篇只有2项关键指标、事实、可能影响、沟通参考和关注点。来源与维护文件默认收起，无侧栏、复杂图表、产品推荐或交易入口。
+保留最初的市场摘要、4张行情卡、栏目列表与文案详情格式，沿用上一版蓝色和浅紫色配色。栏目包括市场早知道（日评/周评）、研报精读、异动快评和我的收藏；支持关键词搜索、资产分类、模板查看、复制与下载。收藏仅保存在当前浏览器，不上传客户信息。
 
-## 文案文件
+正文保持事实、可能影响、沟通参考、关注点、风险及来源的统一结构。本期真实行情快照与待填情景模板分开展示，后者不冒充当前市场数据。文案均保留内部草案或待填待审状态。
 
-`dist/content-kit/`包含30个独立情景MD、统一JSON文案与字段字典，以及7份使用/审查/栏目展示/字段维护说明。`dist/content-kit.zip`可整体下载。`content-work/build_scenarios.py`生成情景文件和JSON；`content-work/validate_content.py`校验变量并打包。修改文案后运行生成、校验脚本，避免MD与JSON不一致。
+## 60种常见情景与240套模块
 
-## 数据
+`dist/template-library.json`是页面读取的统一文案源：60种常见情景，每种包含每日解读、每周回顾、研报精读、异动快评4类独立模块，共240套内容。情景覆盖常见情况，不是对未来市场状态的穷尽枚举；复合事件需人工选择与合并，不宜强行归入单一情景。
 
-已有Wind数据表/服务视为既有能力。本期默认为2026.10.23日评及最近完整交易周2026.10.19—10.23周评，采用经核对的公开历史行情，未声称从Wind读取。`dist/market-edition.json`统一维护本期数据、日周摘要、解读、公开采访观点及来源，切换每日/每周会同步更新首屏与正文。
+`dist/template-files/scenarios/`保留每种情景一份Markdown文件，包含该情景的全部4类文案。`dist/template-files/`还包含使用索引、审核与消保说明，以及同一份结构化JSON。完整文件随`dist/market-template-library.zip`提供下载；前端还可从JSON生成当前模块或当前情景的下载文案。
 
-本期编辑源为`content-work/build_edition.py`，运行后统一生成`market-edition.json`、兼容用的`overview.json`及`dist/editions/2026-10-24/`四份文案。更新须把观察日、比较日、点位、来源和文案作为同一批次核对；指数按期末/基准计算，Shibor按利率差换算BP。不能累加每日涨幅，也不能将其他债券指数当作同一指标。
+每套模块包含标题、摘要、观察时点、启用条件、两项关键指标、事实、可能影响、沟通参考、后续关注、来源要求、避免表述和风险提示。全部〔字段〕须经核实填充，不代表任何市场事实或机构观点已经发生。
 
-内容选择中保留30种情景模板，用占位词表示待填字段。`dist/data-source.json`定义情景模板的同源快照路径，正式数据结构参见`content-kit/06_Wind字段与发布约定.md`及`snapshot.example.json`。本期解读与情景占位字段独立；真实数据核对完成不代表对客文案已获机构审核。机构观点条目明确标为公开采访摘读，不能冒称独立研报。
+原`dist/content-kit/`、`dist/content-kit.zip`和原30情景的生成脚本保留用于兼容；前30种情景沿用原ID、名称和事实/风险边界。当前页面的完整模板库以`template-library.json`为准，不应只更新旧包。
 
-前台只有在质量通过、场景验证一致及期间类型一致时才取用正式快照；上线时后台仍须独立执行数据质量、机构权限、审核和素材授权校验。不能把前台状态当作授权。当前复制和下载均标为内部待审草案。
+## 本期数据与Wind边界
 
-## 内容约束
+已有Wind数据表及服务视为机构既有能力。本期日评观察2026.10.23，比较基准为10.22；周评观察最近完整交易周2026.10.19—10.23，以10.16为比较基准。使用已核对的公开历史行情，非实时数据，未从Wind读取。
 
-参考截至2026.10.24已生效的适当性、网络营销及消保规则，强调事实可核实、观点有条件、风险同屏和客户自主选择。模板不构成已获机构审核的客户材料。具体产品信息依赖正式披露，净值变化需核实分红和口径；来源修订需重新审核并保留旧版。
+`dist/market-edition.json`统一维护本期数据、日周摘要、解读、公开采访观点及来源。编辑源为`content-work/build_edition.py`，运行后生成`market-edition.json`、兼容用`overview.json`及`dist/editions/2026-10-24/`中的日评、周评、异动与机构观点文案。切换每日/每周时，页面同步切换相应区间的行情和解读。更新须把观察日、比较日、点位、单位、来源和文案作为同一批次复核；指数按同口径期末/基准计算涨跌，Shibor按利率差换算BP，不累加每日涨跌。
 
-## 本地运行
+模板可沿用机构已有Wind表服务填充，记录表名/代码、字段、单位、口径、时点、比较基准和提取时间。接口密钥和数据库连接应留在服务端，不放入公开仓库或网页。旧`data-source.json`、`snapshot.example.json`和`content-kit/06_Wind字段与发布约定.md`作为兼容结构参考，不能据其存在宣称页面已连Wind。
 
-`python3 -m http.server 8765 --bind 127.0.0.1 --directory dist`
+数据核对完成不代表文案已获机构审核。机构观点条目明确标为公开采访摘读，不冒称独立研报；研报模板须核实原文、作者、日期、页码与素材授权。上线发布仍须按机构制度完成数据质量、权限、业务、合规及消保审核，页面状态不能替代授权。
 
-检查：`node --check dist/app.js` 和 `python3 content-work/validate_content.py`。
+## 维护与检查
 
-## GitHub Pages 公开访问
-
-此仓库保留编辑源 `dist/` 和内容生成脚本，`docs/` 是生成的静态发布目录。请使用公开仓库，进入 **Settings → Pages → Build and deployment**，选择 **Deploy from a branch**，分支选 `main`，目录选 `/docs`，保存。GitHub 完成发布后，该页会显示公开网址：`https://<账号>.github.io/<仓库名>/`；手机与电脑可直接访问，无需登录。此方式不需要新增 Actions 工作流。
-
-首页 `docs/index.html` 位于 Pages 发布根目录，站内资源、JSON 和下载文件均使用相对路径，可兼容带仓库名的项目网址。`.nojekyll` 保留原始静态文件。复制本项目到新仓库时，不要上传原站点的 `.openai/`、凭据或历史 `.git/`。
-
-### 更新数据或文案
-
-先编辑 `content-work/build_edition.py` 的本期数据、日期、来源与文案，再在仓库根目录执行：
+在项目根目录运行命令。修改本期数据与解读后：
 
 ```sh
 python3 content-work/build_edition.py
-python3 content-work/validate_content.py
-python3 scripts/prepare-pages.py
 ```
 
-修改30种情景文案时，先编辑 `content-work/build_scenarios.py`，再执行：
+修改情景库时，编辑`content-work/build_complete_templates.py`；前30种情景的基础文案来自原`content-kit/scenarios.json`，如需调整，应先修改`build_scenarios.py`并运行原包生成与校验，再重建完整库：
 
 ```sh
 python3 content-work/build_scenarios.py
 python3 content-work/validate_content.py
+python3 content-work/build_complete_templates.py
+python3 content-work/validate_complete.py
+```
+
+仅调整新增情景或4类模块结构时，执行后两条即可。生成脚本同步重建JSON、60份情景Markdown和ZIP；校验脚本检查60个连续ID、240套模块、完整字段和下载包有效性，避免页面与下载内容脱节。
+
+界面主要编辑`dist/index.html`、`dist/styles.css`和`dist/app.js`。旧`edition-view.js`为兼容文件，当前页面不引用。发布前执行：
+
+```sh
+node --check dist/app.js
+python3 content-work/validate_complete.py
+```
+
+本地预览：
+
+```sh
+python3 -m http.server 8765 --bind 127.0.0.1 --directory dist
+```
+
+## 文案审核与消保
+
+事实可核实，观点保留前提，原因未知时写明待核实，风险与内容同屏。市场指标不等于具体产品表现；净值变化须核实持仓、估值、分红和费用口径，具体产品信息以管理人及销售机构正式披露为准。
+
+不承诺本金、收益或回本时间，不给统一买卖指令，不传播未经确认的名单或细节。涉及产品开放限制、回撤或未确认事件时默认先内部核实，尊重客户知情权和自主选择，并按机构制度提供正式查询、反馈及投诉渠道。更正保留原值、新值、原因、时间和旧版记录，重新审核后发布。
+
+## GitHub Pages发布
+
+此发布副本保留编辑源`dist/`、内容生成脚本及完整`template-files/`目录，`docs/`是生成的静态发布目录。仓库设置 **Settings → Pages → Build and deployment → Deploy from a branch**，分支选`main`，目录选`/docs`。公开访问地址为：https://jonshaw-git.github.io/market-watch/ 。
+
+完成上述数据、文案或界面更新并核对后执行：
+
+```sh
 python3 scripts/prepare-pages.py
 ```
 
-界面修改直接编辑 `dist/index.html`、`dist/styles.css`、`dist/app.js` 或 `dist/edition-view.js`，再运行 `python3 scripts/prepare-pages.py`。可用 `python3 -m http.server 8765 --bind 127.0.0.1 --directory docs` 在本地预览发布结果。核对完成后，将改动提交并推送到 `main`，Pages 会按同一路径重新发布。
+脚本将完整`dist/`同步到`docs/`，包含每情景Markdown、JSON和ZIP，加上`.nojekyll`。资源和下载使用相对路径，兼容`/<仓库名>/`子路径。可用`python3 -m http.server 8765 --bind 127.0.0.1 --directory docs`预览。确认后将改动提交并推送到`main`，Pages按原地址重新发布，无需新增Actions工作流。
 
-不要直接修改 `docs/`。同步脚本会检查目录边界、拒绝符号链接，并通过 `scripts/.pages-manifest.json` 核对上一次生成结果；若发现手工改动，会停止，避免覆盖。该清单应随页面一起提交。
+不要直接修改`docs/`。同步脚本检查目录边界、拒绝符号链接，并通过`scripts/.pages-manifest.json`核对上一次生成结果；发现人工修改时停止以防覆盖。此清单应随内容一起提交。上传时包含`dist/`、`docs/`、`content-work/`、`scripts/`和README，排除`.git/`历史、`.openai/`、凭据、缓存与临时QA文件。通过GitHub网页上传超过100个文件时，可按直接父目录分批上传，保持原目录结构。
