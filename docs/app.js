@@ -1,30 +1,135 @@
 'use strict';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const escapeHTML=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const MAGNITUDES=new Set(['上行幅度','下行幅度','扩大幅度','收窄幅度','上涨幅度','下跌幅度','下降幅度','变动幅度','权益跌幅','债券跌幅','权益涨幅','债券涨幅']);
-const units={yield_value_pct:'%',yield_change_bp:'BP',short_yield_change_bp:'BP',long_yield_change_bp:'BP',spread_value_bp:'BP',spread_change_bp:'BP',funding_value_pct:'%',funding_change_bp:'BP',equity_close:'点',equity_return_pct:'%',bond_return_pct:'%',convertible_close:'点',convertible_return_pct:'%',fx_change_pct:'%',gold_change_pct:'%',foreign_yield_pct:'%',foreign_yield_change_bp:'BP',nav_change_pct:'%'};
-const METRICS={S01:['equity_return_pct','bond_return_pct'],S02:['yield_value_pct','yield_change_bp'],S03:['yield_value_pct','yield_change_bp'],S04:['short_yield_change_bp','long_yield_change_bp'],S05:['spread_value_bp','spread_change_bp'],S06:['spread_value_bp','spread_change_bp'],S07:['event_type','event_date'],S08:['funding_value_pct','funding_change_bp'],S09:['funding_value_pct','funding_change_bp'],S10:['equity_close','equity_return_pct'],S11:['equity_close','equity_return_pct'],S12:['equity_return_a_pct','equity_return_b_pct'],S13:['convertible_close','convertible_return_pct'],S14:['convertible_close','convertible_return_pct'],S15:['fx_value','fx_change_pct'],S16:['fx_value','fx_change_pct'],S17:['gold_value','gold_change_pct'],S18:['gold_value','gold_change_pct'],S19:['foreign_yield_pct','foreign_yield_change_bp'],S20:['foreign_yield_pct','foreign_yield_change_bp'],S21:['equity_return_pct','bond_return_pct'],S22:['equity_return_pct','bond_return_pct'],S23:['equity_return_pct','bond_return_pct'],S24:['policy_date','effective_date'],S25:['actual_value','consensus_value'],S26:['actual_value','consensus_value'],S27:['event_time','verification_status'],S28:['nav_value','nav_change_pct'],S29:['last_valid_as_of','data_quality_status'],S30:['old_value','new_value']};
-const state={view:'market',period:'daily',id:'current'};let reportTemplate={},scenarios=[],dictionary={},snapshot={mode:'template',fields:{}},sourceConfig={mode:'template'},toastTimer;
-function toast(t){$('#toast').textContent=t;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,3000)}
-function scene(){return scenarios.find(x=>x.id===state.id)||scenarios[0]}
-function activeData(){return snapshot.quality_status==='passed'&&snapshot.validated_scene_id===state.id&&snapshot.mode!=='template'&&sourceConfig.mode!=='template'&&snapshot.scene_id===state.id&&snapshot.period_type===(state.view==='alert'?'event':state.period)?snapshot:{fields:{}}}
-function value(field){const data=activeData();const raw=data[field]??data.fields?.[field];return raw&&typeof raw==='object'&&!Array.isArray(raw)?raw.value:raw}
-function present(v){return v!==null&&v!==undefined&&v!==''}
-function fmt(v){return typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:6}):String(v)}
-function fill(template,s,plain=false){return String(template).replace(/〔([^〕]+)〕/g,(full,token)=>{const key=s.bindings?.[token],v=value(key);if(!present(v))return plain?full:`<span class="inline-placeholder">${escapeHTML(full)}</span>`;let shown=v;if(MAGNITUDES.has(token)&&Number.isFinite(Number(v)))shown=Math.abs(Number(v));return plain?fmt(shown):escapeHTML(fmt(shown))})}
-function factHTML(s,text=s.fact){const segments=String(text).split(/(〔[^〕]+〕)/g);return segments.map(t=>/^〔/.test(t)?fill(t,s):escapeHTML(t)).join('')}
-function safeUrl(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:null}catch{return null}}
-$('#overview-read').onclick=()=>{state.period=state.view==='market'?state.period:'daily';state.view='market';state.id='current';history.replaceState(null,'','#'+(state.period==='weekly'?'weekly':'market'));render();$('#content').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})};
-function renderMetrics(s){$('#metrics').hidden=false;$('#metrics').innerHTML=(METRICS[s.id]||[]).map(key=>{const v=value(key),has=present(v),u=units[key]||'';const label=(dictionary[key]||key).replace('有符号','');return `<div class="metric"><span class="metric-label">${escapeHTML(label)}</span><strong class="metric-value ${has?'':'placeholder-value'}">${has?escapeHTML(fmt(v))+(u?`<small>${u}</small>`:''):'〔对应指标值〕'}</strong><span class="metric-sub">${has?'采用本篇数据时点':'同一数据时点与基准'}</span></div>`}).join('')}
-function factText(s){return s.id==='S29'?s.variants[present(value('last_valid_as_of'))?'fact_with_history':'fact_no_history']:s.fact}
-function impactText(s){return s.id==='S30'?s.variants[value('correction_review_status')==='completed'?'impact_completed':'impact_pending']:s.impact}
-function setState(){const hash=location.hash.slice(1);if(hash==='weekly'){state.view='market';state.period='weekly'}if(hash==='daily'){state.view='market';state.period='daily'}if(hash==='research')state.view='research';if(hash==='alert'||hash==='alerts')state.view='alert';const selected=localStorage.getItem('marketSimpleScene');if(!['weekly','daily'].includes(hash)&&localStorage.getItem('marketEditionSeen')===marketEdition?.edition_id&&(selected==='current'||scenarios.some(s=>s.id===selected)))state.id=selected}
-function renderResearch(){const report=reportTemplate;$('#category').textContent='研报观点';$('#title').textContent=report.title;$('#meta').textContent=report.meta;$('#metrics').hidden=true;$('#fact-label').textContent='核心观点';$('#fact').textContent=report.fact;$('#impact-label').textContent='依据与风险';$('#impact').textContent=report.impact;$('#talk').textContent=report.talk;$('#watch-label').textContent='关注：';$('#watch').textContent=report.watch;$('#data-details').innerHTML='<p class="data-note">需保留机构、作者、原报告日期、适用期限、依据与风险。未配置原文时不展示可点击入口；未经授权不复制全文或图表。</p><p class="no-link">〔经授权的原报告链接〕</p>';$('#download-scene').href='content-kit/04_研报观点展示模板.md';$('#download-scene').textContent='下载研报模板'}
-function render(){const s=scene();if(!s)return;$$('[data-view]').forEach(b=>{const on=b.dataset.view===state.view;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)});$$('[data-period]').forEach(b=>{const on=b.dataset.period===state.period;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)});$('.period').hidden=state.view!=='market';$('#scenario-label').hidden=state.view==='research';$('#research-tip').hidden=state.view!=='research';$('.controls').style.justifyContent=state.view==='alert'?'flex-end':'space-between';$('#scenario').value=state.id;$('#article').hidden=false;$('#loading').hidden=true;$('#download-scene').textContent='下载本情景文案';
-renderEditionOverview();if((state.id==='current'||state.view==='research')&&renderEditionArticle())return;$('#article .status').textContent='情景模板 · 待机构审核';if(state.view==='research'){renderResearch();return}
-$('#category').textContent=state.view==='alert'?'异动点评 · '+s.group:state.period==='weekly'?'每周解读 · '+s.group:'每日解读 · '+s.group;$('#title').textContent=state.view==='alert'?s.alert_title:state.period==='weekly'?s.weekly_title:s.daily_title;const asof=value('as_of'),base=value('benchmark');$('#meta').textContent=`模板演示 · 截至${present(asof)?fmt(asof):'〔数据时点〕'} · ${state.period==='weekly'&&state.view!=='alert'?'周度基准：'+(present(base)?fmt(base):'〔上周最后有效交易日〕'):'市场数据：Wind'}${['S07','S24','S25','S26','S27','S28','S30'].includes(s.id)?' · 事实另核对正式披露':''}`;renderMetrics(s);$('#fact-label').textContent=state.view==='market'&&state.period==='weekly'?'本周发生了什么':'发生了什么';$('#fact').innerHTML=factHTML(s,factText(s));$('#impact-label').textContent='可能有什么影响';$('#impact').innerHTML=factHTML(s,impactText(s));$('#talk').innerHTML=factHTML(s,s.talk);$('#watch-label').textContent=state.period==='weekly'&&state.view!=='alert'?'下期关注：':'关注：';$('#watch').innerHTML=factHTML(s,s.watch);
-$('#data-details').innerHTML=`<p class="data-note">本篇采用同一数据快照。未核实原因时只描述事实，不从涨跌自动推断原因。1BP＝0.01个百分点。</p>${s.fields.map(key=>{const v=value(key);return `<div class="data-row"><span>${escapeHTML(dictionary[key]||key)}</span><strong>${present(v)?escapeHTML(fmt(v)):'〔待绑定/核实〕'}</strong></div>`}).join('')}<p class="data-note" style="margin-top:12px">${escapeHTML(s.avoid)}${s.id==='S28'?'具体产品信息以管理人或销售机构正式披露为准。':''}</p>${(activeData().source_refs||[]).filter(r=>safeUrl(r.url)).map(r=>`<a href="${escapeHTML(safeUrl(r.url))}" target="_blank" rel="noopener">${escapeHTML(r.name||'正式来源')} ↗</a>`).join('')}`;$('#download-scene').href='content-kit/'+s.file;$('#download-scene').download=s.id+'_'+s.name+'.md'}
-async function init(){try{const [kit,fields,config,edition]=await Promise.all(['content-kit/scenarios.json','content-kit/field-dictionary.json','data-source.json','market-edition.json'].map(async url=>{const r=await fetch(url,{cache:'no-cache'});if(!r.ok)throw new Error('读取失败');return r.json()}));marketEdition=edition;scenarios=kit.scenarios;reportTemplate=kit.report_template;dictionary=fields.fields;sourceConfig=config;try{const url=new URL(config.snapshot_url,location.href);if(url.origin!==location.origin)throw new Error('请通过同源业务接口提供数据');const r=await fetch(url,{credentials:'same-origin'});if(!r.ok)throw new Error('快照读取失败');snapshot=await r.json()}catch{snapshot={mode:'template',fields:{}}}
-const groups=[...new Set(scenarios.map(s=>s.group))];$('#scenario').innerHTML='<option value="current">本期更新 · 10月23日</option>'+groups.map(g=>`<optgroup label="${g}情景模板">${scenarios.filter(s=>s.group===g).map(s=>`<option value="${s.id}">${s.id} ${s.name}</option>`).join('')}</optgroup>`).join('');try{setState()}catch{}render();$('#module-files').innerHTML=[['02_日评展示模板.md','日评模板'],['03_周评展示模板.md','周评模板'],['04_研报观点展示模板.md','研报模板'],['05_异动点评展示模板.md','异动模板'],['06_Wind字段与发布约定.md','字段与发布约定']].map(([file,name])=>`<a href="content-kit/${file}" download>${name} ↗</a>`).join('')}
-catch{$('#loading').textContent='模板暂时未能载入，请刷新后重试。';$('#loading').classList.add('error')}}
-$$('[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;history.replaceState(null,'','#'+(state.view==='market'&&state.period==='weekly'?'weekly':state.view));$('.data-details').open=false;render()});$$('[data-period]').forEach(b=>b.onclick=()=>{state.period=b.dataset.period;history.replaceState(null,'','#'+(state.period==='weekly'?'weekly':'market'));$('.data-details').open=false;render()});$('#scenario').onchange=e=>{state.id=e.target.value;try{localStorage.setItem('marketSimpleScene',state.id);localStorage.setItem('marketEditionSeen',marketEdition?.edition_id||'')}catch{}$('.data-details').open=false;render()};$('#copy').onclick=async()=>{let text;if(marketEdition&&(state.id==='current'||state.view==='research'))text=editionPlainText();else if(state.view==='research')text='【内部草案·待机构审核】\n'+$('#title').textContent+'\n'+$('#meta').textContent+'\n\n核心观点：'+$('#fact').textContent+'\n\n依据与风险：'+$('#impact').textContent+'\n\n沟通参考：'+$('#talk').textContent+'\n\n来源：〔经授权原文〕';else{const s=scene();text=`【内部草案·待机构审核】\n${$('#title').textContent}\n${$('#meta').textContent}\n\n发生了什么：${fill(factText(s),s,true)}\n\n可能影响：${fill(impactText(s),s,true)}\n\n沟通参考：${fill(s.talk,s,true)}\n\n关注：${fill(s.watch,s,true)}\n\n市场指标不等于具体产品表现。对客使用以本机构审核内容为准。\n模板：${s.id} v${s.version}`};try{await navigator.clipboard.writeText(text);toast('已复制内部草稿，保留日期和待审标识')}catch{toast('浏览器未允许复制，可下载文案文件查看')}};init();
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = v => { try { const u = new URL(v); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; } };
+const ICONS = {search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',bookmark:'<path d="M6 3h12v18l-6-4-6 4z"/>',arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>'};
+const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+const MODULES = {daily:'每日解读',weekly:'每周回顾',research:'研报精读',alert:'异动快评'};
+const FILTERS = [['all','全部'],['bond','债券/信用'],['equity','权益/转债'],['funding','资金'],['fx','汇率'],['gold','黄金'],['overseas','海外'],['multi','多资产'],['event','政策/事件'],['product','产品'],['data','数据']];
+const state = {view:'market',period:'daily',filter:'all',query:'',limit:12,reader:null,module:'daily'};
+let edition, library, saved = new Set();
+try { const data = JSON.parse(localStorage.getItem('market-watch-saved-v2') || '[]'); if (Array.isArray(data)) saved = new Set(data.filter(x=>typeof x==='string')); } catch {}
+let toastTimer;
+function toast(message) { ($('#reader').open ? $('#reader') : document.body).append($('#toast')); $('#toast').textContent=message; $('#toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').hidden=true,2600); }
+function key() { return state.view==='market' || state.view==='saved' ? state.period : state.view; }
+function actual(k) { return edition.periods[k]?.article || edition[k]; }
+function sources(a) { return edition.sources.filter(s=>(a.source_ids || []).includes(s.id)); }
+function links(a) { return sources(a).map(s=>safeUrl(s.url) ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.name)} ↗</a>` : '').join(''); }
+function saveButton(id) { return `<button class="icon-btn" data-save="${esc(id)}" aria-label="${saved.has(id)?'取消收藏':'收藏'}" aria-pressed="${saved.has(id)}">${icon('bookmark')}</button>`; }
+function syncSaved() { try { localStorage.setItem('market-watch-saved-v2',JSON.stringify([...saved])); } catch { toast('浏览器未允许保存，收藏仅在本次访问有效'); } }
+function renderOverview() {
+ const p = edition.periods[state.period], d=p.overview;
+ $('#edition-date').textContent=edition.edition_date; $('#brief-date').textContent=d.period_label; $('#brief-title').textContent=d.title; $('#brief-summary').textContent=d.summary; $('#brief-focus').textContent=d.focus; $('#snapshot-date').textContent=d.snapshot_label;
+ $('#quotes').innerHTML=d.quotes.map(q=>`<div class="quote"><div class="quote-top"><span>${esc(q.name)}</span><span>${esc(q.unit)}</span></div><div class="quote-number">${esc(q.value)}${q.unit==='%'?'<small>%</small>':''}</div><div class="quote-bottom"><span class="quote-change ${esc(q.direction)}">${esc(q.change)}</span><span>${esc(q.basis)}</span></div></div>`).join('');
+ $('#snapshot-sources').innerHTML=`<p>${esc(edition.methodology)}</p><p>比较基准：${esc(p.baseline)}；数据核对日期：${esc(edition.verified_on)}。</p><div class="source-links">${links(p.article)}</div>`; $('#overview').hidden=false;
+}
+function metrics(a,template=false) {
+ if(!a.metrics?.length) return '';
+ return `<div class="metrics">${a.metrics.map(m=>`<div class="metric"><span>${esc(m.label || m.name)}</span><strong class="${esc(m.direction || '')}">${esc(template ? m.value : m.change || m.value)}</strong>${!template&&m.baseline_date?`<small>对比 ${esc(m.baseline_date)}</small>`:''}</div>`).join('')}</div>`;
+}
+function bodySections(a,k,template=false) {
+ const labels = k==='research' && a.title.startsWith('核实提示') ? ['核实状态','影响与边界','沟通参考','后续核实'] : k==='research' ? ['核心观点','依据与风险','沟通参考','跟踪验证'] : k==='weekly' ? ['本周发生了什么','可能有什么影响','沟通参考','下期关注'] : ['发生了什么','可能有什么影响','沟通参考','后续关注'];
+ return `${metrics(a,template)}<section class="body-section"><h3 class="section-title"><span class="keypoint-number">01</span>${labels[0]}</h3><p>${esc(a.fact)}</p></section><section class="body-section"><h3 class="section-title"><span class="keypoint-number">02</span>${labels[1]}</h3><p>${esc(a.impact)}</p></section><section class="talk-box"><h3>${labels[2]} <span>内部草案</span></h3><p>${esc(a.talk)}</p></section><p class="watch"><strong>${labels[3]}：</strong>${esc(a.watch)}</p><p class="risk">${esc(template ? a.risk : edition.risk)}</p>`;
+}
+function actualCard(k,compact=false) {
+ const a=actual(k),id='edition:'+k;
+ return `<article class="card article-card"><div class="article-topline"><div class="tags"><span class="tag">本期内容</span><span class="tag neutral">${esc(a.category)}</span><span class="tag gold">待机构审核</span></div>${saveButton(id)}</div><h2><button class="title-button" data-actual="${k}">${esc(a.title)}</button></h2><div class="article-meta">${esc(a.meta)}</div>${compact?`<p class="abstract">${esc(a.fact)}</p>`:`<div class="summary"><strong>本期摘要</strong>${esc(edition.periods[k]?.overview.summary || a.fact)}</div>${bodySections(a,k)}`}<div class="article-footer"><button class="primary" data-actual="${k}">${compact?'阅读完整内容':'查看来源与完整文案'} ${icon('arrow')}</button><button class="outline" data-copy-actual="${k}">复制草案</button><a class="outline" href="editions/2026-10-24/${k}.md" download>下载文案 ↓</a></div></article>`;
+}
+function visibleScenarios() {
+ return library.scenarios.filter(s=>{
+ if(state.view==='saved'&&!saved.has('scene:'+s.id)) return false;
+ if(state.filter!=='all'&&s.filter!==state.filter) return false;
+ if(!state.query) return true;
+ return JSON.stringify(s).toLowerCase().includes(state.query.toLowerCase());
+ });
+}
+function templateCard(s) {
+ const m=s.modules[key()];
+ return `<article class="card template-card"><div class="article-topline"><div class="tags"><span class="template-id">${esc(s.id)}</span><span class="tag neutral">${esc(s.group)}</span></div>${saveButton('scene:'+s.id)}</div><h3><button class="title-button" data-scene="${s.id}">${esc(s.name)}</button></h3><p class="template-summary">${esc(m.summary)}</p><div class="template-meta"><span>${esc(MODULES[key()])} · 待填待审</span><span>4类文案</span></div><div class="template-actions"><button class="outline" data-scene="${s.id}">查看模板 ${icon('arrow')}</button><button data-download-scene="${s.id}" class="download-link">下载 ↓</button></div></article>`;
+}
+function matchesActual(k) {
+ const a=actual(k);
+ if(state.view==='saved'&&!saved.has('edition:'+k)) return false;
+ if(state.filter!=='all') { if(state.filter!=='multi'&&!(k==='research'&&state.filter==='equity')) return false; }
+ return !state.query || JSON.stringify(a).toLowerCase().includes(state.query.toLowerCase());
+}
+function render() {
+ if(!edition||!library) return;
+ renderOverview();
+ document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===state.view)));
+ document.querySelectorAll('[data-period]').forEach(b=>{b.classList.toggle('selected',b.dataset.period===state.period); b.setAttribute('aria-pressed',String(b.dataset.period===state.period));});
+ $('#period-control').hidden=state.view!=='market'; $('#view-label').hidden=state.view==='market'; $('#view-label').textContent=state.view==='research'?'保留机构、作者、日期与原始来源':state.view==='alert'?'先核实事实，再解释可能影响':'收藏保存在当前浏览器';
+ $('#saved-count').textContent=saved.size;
+ $('#filters').innerHTML=FILTERS.map(([id,label])=>`<button data-filter="${id}" class="${state.filter===id?'selected':''}" aria-pressed="${state.filter===id}">${label}</button>`).join('');
+ const ks=state.view==='saved'?['daily','weekly','research','alert']:[key()];
+ const actualKeys=ks.filter(matchesActual), scenarios=visibleScenarios();
+ $('#article-list').innerHTML=actualKeys.map(k=>actualCard(k,state.view==='saved')).join('');
+ $('#template-section').hidden=false; $('#template-total').textContent=scenarios.length;
+ $('#template-grid').innerHTML=scenarios.slice(0,state.limit).map(templateCard).join('');
+ $('#load-more').hidden=state.limit>=scenarios.length; $('#load-more').textContent=`加载更多情景（还有${Math.max(0,scenarios.length-state.limit)}种） ↓`;
+ $('#result-count').textContent=`${actualKeys.length}篇内容 · ${scenarios.length}种情景`;
+ if(!scenarios.length) $('#template-grid').innerHTML=`<div class="empty">${state.view==='saved'?'还没有符合条件的情景收藏，点击卡片右上角书签即可收藏。':'没有匹配的情景，请试试其他关键词或分类。'}</div>`;
+ if(!actualKeys.length&&state.view==='saved'&&!saved.size) $('#article-list').innerHTML='<div class="card empty">收藏常用内容与模板，方便下次快速查看。</div>';
+ $('#loading').hidden=true;
+}
+function actualMarkdown(k) {
+ const a=actual(k);
+ return `# ${a.title}\n\n> 内部草案 · 待机构审核\n\n${a.meta}\n\n## ${k==='research'?'核心观点':'发生了什么'}\n${a.fact}\n\n## 可能影响与风险\n${a.impact}\n\n## 沟通参考\n${a.talk}\n\n## 关注\n${a.watch}\n\n## 风险提示\n${edition.risk}\n\n## 来源\n${sources(a).map(s=>'- '+s.name+'：'+s.url).join('\n')}\n\n${edition.methodology}\n核对日期：${edition.verified_on}；版本：${edition.edition_id}\n`;
+}
+function asList(v) { return Array.isArray(v)?v:[v].filter(Boolean); }
+function moduleMarkdown(s,k) {
+ const m=s.modules[k];
+ return `## ${MODULES[k]}\n\n### ${m.title}\n\n${m.meta}\n\n摘要：${m.summary}\n\n启用条件：${m.trigger}\n\n关键指标：\n${m.metrics.map(x=>'- '+x.label+'：'+x.value).join('\n')}\n\n### ${k==='research'?'核心观点':'发生了什么'}\n${m.fact}\n\n### 可能影响与风险\n${m.impact}\n\n### 沟通参考\n${m.talk}\n\n### 后续关注\n${m.watch}\n\n### 来源要求\n${asList(m.sources).map(x=>'- '+x).join('\n')}\n\n### 避免表述\n${asList(m.avoid).map(x=>'- '+x).join('\n')}\n\n### 风险提示\n${m.risk}\n\n### 审核说明\n${m.review_note}\n`;
+}
+function sceneMarkdown(s,k) {
+ return `# ${s.id} ${s.name}\n\n> 内部文案模板 · 待填待审。〔字段〕为占位内容，不代表实际行情。\n\n分类：${s.group}；版本：${library.version}\n\n${k?moduleMarkdown(s,k):Object.keys(MODULES).map(x=>moduleMarkdown(s,x)).join('\n---\n\n')}`;
+}
+function downloadText(name,text) {
+ const u=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})); const a=document.createElement('a'); a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+async function copyText(text) {
+ try { await navigator.clipboard.writeText(text);toast('已复制内部草案，请经机构审核后使用'); }
+ catch { const t=document.createElement('textarea'); t.value=text;document.body.append(t);t.select();const ok=document.execCommand('copy');t.remove();toast(ok?'已复制内部草案，请经机构审核后使用':'复制未成功，请下载文案'); }
+}
+function openActual(k) {
+ state.reader={type:'actual',key:k}; $('#reader-kicker').textContent='本期内容 · 待机构审核'; $('#reader-title').textContent=actual(k).title;$('#module-switch').hidden=true;
+ $('#reader-body').innerHTML=`<div class="article-meta">${esc(actual(k).meta)}</div>${bodySections(actual(k),k)}<details class="review-details" open><summary>数据与来源</summary><div class="source-links">${links(actual(k))}</div><p>${esc(edition.methodology)}</p><p>核对日期：${esc(edition.verified_on)} · ${esc(edition.edition_id)}</p></details>`;
+ $('#reader-actions').innerHTML=`<button class="primary" data-copy-actual="${k}">复制内部草案</button><a class="outline" href="editions/2026-10-24/${k}.md" download>下载本期文案 ↓</a>`;showReader();
+}
+function renderSceneReader() {
+ const s=library.scenarios.find(x=>x.id===state.reader.id),m=s.modules[state.module];
+ $('#reader-kicker').textContent=s.id+' · '+s.group+' · 待填待审'; $('#reader-title').textContent=s.name; $('#module-switch').hidden=false;
+ $('#module-switch').innerHTML=Object.entries(MODULES).map(([k,label])=>`<button data-module="${k}" class="${state.module===k?'selected':''}" aria-pressed="${state.module===k}">${label}</button>`).join('');
+ $('#reader-body').innerHTML=`<h3 class="module-title">${esc(m.title)}</h3><div class="article-meta">${esc(m.meta)}</div><div class="summary"><strong>模板摘要</strong>${esc(m.summary)}</div><p class="trigger"><strong>启用条件：</strong>${esc(m.trigger)}</p>${bodySections(m,state.module,true)}<details class="review-details"><summary>来源要求与审查要点</summary><h4>来源要求</h4><ul>${asList(m.sources).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>避免表述</h4><ul>${asList(m.avoid).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(m.review_note)}</p><p>当前为模板，〔字段〕须补齐并经审核；不满足来源或触发条件时不发布。本库覆盖常见情景，实际市场可能出现组合情景，使用时需人工判断。</p></details>`;
+ $('#reader-actions').innerHTML=`<button class="primary" data-copy-scene="${s.id}">复制本模块草案</button><button class="outline" data-download-module="${s.id}">下载本模块 ↓</button><button class="outline" data-download-scene="${s.id}">下载全部4类 ↓</button>`;
+}
+function showReader() { if(!$('#reader').open) { $('#reader').showModal();document.body.classList.add('dialog-open'); } $('#reader-body').scrollTop=0; }
+function openScene(id) { state.reader={type:'scene',id};state.module=key();renderSceneReader();showReader(); }
+function navigate(view) { state.view=view;state.limit=12;state.filter='all';state.query='';$('#search').value='';history.replaceState(null,'','#'+(view==='market'?state.period:view));render(); }
+document.addEventListener('click',e=>{
+ const b=e.target.closest('button,a');if(!b) return;
+ if(b.dataset.view) navigate(b.dataset.view);
+ if(b.dataset.period) {state.period=b.dataset.period;state.limit=12;history.replaceState(null,'','#'+state.period);render();}
+ if(b.dataset.filter) {state.filter=b.dataset.filter;state.limit=12;render();}
+ if(b.dataset.save) {const id=b.dataset.save; saved.has(id)?saved.delete(id):saved.add(id);syncSaved();render();}
+ if(b.dataset.actual) openActual(b.dataset.actual);
+ if(b.dataset.scene) openScene(b.dataset.scene);
+ if(b.dataset.module) {state.module=b.dataset.module;renderSceneReader();$('#reader-body').scrollTop=0;}
+ if(b.dataset.copyActual) copyText(actualMarkdown(b.dataset.copyActual));
+ if(b.dataset.copyScene) copyText(sceneMarkdown(library.scenarios.find(s=>s.id===b.dataset.copyScene),state.module));
+ if(b.dataset.downloadScene) {const s=library.scenarios.find(s=>s.id===b.dataset.downloadScene);downloadText(`${s.id}_${s.name}_四类模板.md`,sceneMarkdown(s));}
+ if(b.dataset.downloadModule) {const s=library.scenarios.find(s=>s.id===b.dataset.downloadModule);downloadText(`${s.id}_${MODULES[state.module]}_待审模板.md`,sceneMarkdown(s,state.module));}
+});
+$('#search').addEventListener('input',e=>{state.query=e.target.value.trim();state.limit=12;render();});
+$('#load-more').addEventListener('click',()=>{state.limit+=12;render();});
+$('#reader-close').addEventListener('click',()=>$('#reader').close());
+$('#reader').addEventListener('close',()=>{document.body.classList.remove('dialog-open');state.reader=null;});
+$('#reader').addEventListener('click',e=>{if(e.target===$('#reader')) {const r=$('#reader').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('#reader').close();}});
+$('#overview-read').addEventListener('click',()=>openActual(state.period));
+async function init() {
+ document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
+ const hash=location.hash.slice(1);if(['daily','weekly'].includes(hash))state.period=hash;else if(['market','research','alert','saved'].includes(hash))state.view=hash;
+ try {const results=await Promise.all(['market-edition.json','template-library.json'].map(async path=>{const r=await fetch(path);if(!r.ok)throw Error(path);return r.json();}));[edition,library]=results;if(library.scenarios.length!==60)throw Error('模板库不完整');render();}
+ catch {$('#loading').textContent='内容暂时未能载入，请刷新页面重试。';}
+}
+init();
