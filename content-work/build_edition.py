@@ -1,0 +1,84 @@
+"""Build the reviewed public-data edition, keeping figures and downloads consistent."""
+from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
+import json
+
+ROOT = Path(__file__).resolve().parents[1]
+DIST = ROOT / 'dist'
+SOURCES = [
+    {'id': 'equity', 'name': '英为财情｜上证指数历史行情', 'url': 'https://cn.investing.com/indices/shanghai-composite-historical-data'},
+    {'id': 'convertible', 'name': '英为财情｜上证转债历史行情', 'url': 'https://cn.investing.com/indices/sse-convertible-bond-historical-data'},
+    {'id': 'treasury', 'name': '英为财情｜上证国债历史行情', 'url': 'https://cn.investing.com/indices/shanghai-se-treasury-bond-historical-data'},
+    {'id': 'shibor23', 'name': '新华财经｜2026年10月23日Shibor', 'url': 'https://www.cnfin.com/yw-lb/detail/20261023/4485796_1.html'},
+    {'id': 'shibor22', 'name': '新华财经｜2026年10月22日Shibor', 'url': 'https://m.cnfin.com/yw-lb/zixun/20261022/4485058_1.html'},
+    {'id': 'shibor16', 'name': '新华财经｜2026年10月16日Shibor', 'url': 'https://www.cnfin.com/hb-lb/detail/20261016/4482313_1.html'},
+    {'id': 'equity23', 'name': '上海证券报｜10月23日收盘报道', 'url': 'https://paper.cnstock.com/html/2026-10/24/content_2280899.htm'},
+    {'id': 'equity16', 'name': '证券日报｜10月16日收评（东方财富转载）', 'url': 'https://finance.eastmoney.com/a/202610163898670365.html'},
+    {'id': 'viewpoint', 'name': '上海证券报｜10月23日机构公开采访（新浪转载）', 'url': 'https://finance.sina.com.cn/roll/2026-10-23/doc-iniweywq5056075.shtml'},
+]
+BY_ID = {s['id']: s for s in SOURCES}
+OBSERVATIONS = {
+    'equity': {'name': '上证指数', 'unit': '点', 'precision': 2, 'values': {'2026-10-16': '3716.28', '2026-10-22': '3658.03', '2026-10-23': '3690.48'}},
+    'convertible': {'name': '上证转债指数', 'unit': '点', 'precision': 2, 'values': {'2026-10-16': '388.87', '2026-10-22': '388.48', '2026-10-23': '395.39'}},
+    'treasury': {'name': '上证国债指数', 'unit': '点', 'precision': 2, 'values': {'2026-10-16': '231.52', '2026-10-22': '231.59', '2026-10-23': '231.57'}},
+    'shibor': {'name': '7天 Shibor', 'unit': '%', 'precision': 4, 'values': {'2026-10-16': '1.3390', '2026-10-22': '1.3210', '2026-10-23': '1.3260'}},
+}
+
+def signed(value):
+    rounded = value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return ('+' if rounded >= 0 else '−') + f'{abs(rounded):.2f}'
+
+def quotes(baseline, weekly=False):
+    result = []
+    for key, series in OBSERVATIONS.items():
+        end = Decimal(series['values']['2026-10-23'])
+        base = Decimal(series['values'][baseline])
+        change = (end-base)*100 if key == 'shibor' else (end/base-1)*100
+        source = BY_ID['shibor23' if key == 'shibor' else key]
+        result.append({'key': key, 'name': series['name'], 'value': f'{end:,.{series["precision"]}f}', 'unit': series['unit'], 'baseline_value': f'{base:,.{series["precision"]}f}', 'baseline_date': baseline, 'change': signed(change)+(' BP' if key == 'shibor' else '%'), 'direction': 'rise' if change > 0 else 'fall' if change < 0 else '', 'basis': ('周' if weekly else '日')+('变动' if key == 'shibor' else '涨跌'), 'source_name': source['name'], 'source_url': source['url']})
+    return result
+
+DAILY_QUOTES, WEEKLY_QUOTES = quotes('2026-10-22'), quotes('2026-10-16', True)
+COMMON_RISK = '市场指标不等于具体理财产品表现。实际影响需结合持仓、久期、估值及管理人披露判断；理财产品存在本金损失风险。对客使用以本机构审核内容为准。'
+METHODOLOGY = '指数涨跌幅＝（期末收盘值÷比较日收盘值−1）×100%；采用公开页面显示的两位小数点位计算，可能与原始精度结果有尾差。Shibor变动＝（期末利率−比较日利率）×100，单位为BP，1BP＝0.01个百分点。指数不混用：上证转债不同于中证转债，上证国债不同于中债国债。数据为公开历史快照，非实时，未从Wind接口读取。'
+
+edition = {
+    'edition_id': '2026-10-24-public-1',
+    'edition_date': '2026年10月24日',
+    'verified_on': '2026-10-24',
+    'status': '内部草案 · 待机构审核',
+    'risk': COMMON_RISK,
+    'methodology': METHODOLOGY,
+    'sources': SOURCES,
+    'observations': OBSERVATIONS,
+    'periods': {
+        'daily': {
+            'label': '昨日收盘 · 2026.10.23', 'start': '2026-10-23', 'end': '2026-10-23', 'baseline': '2026-10-22',
+            'overview': {'as_of': '2026.10.23', 'period_label': '10.23 收盘观察', 'title': '权益与转债回升，\n看清市场与产品的差别', 'summary': '上证指数日涨0.89%，上证转债指数日涨1.78%；上证国债指数微跌0.01%。单日表现不能直接推算产品净值。', 'focus': '关注持仓 · 久期 · 估值时点', 'snapshot_label': '2026.10.23 · 收盘 / 当日公布值', 'quotes': DAILY_QUOTES},
+            'article': {'category': '每日解读 · 多资产', 'title': '10月23日：权益、转债回升，国债指数小幅波动', 'meta': '数据截至2026.10.23 · 对比2026.10.22 · 公开行情', 'metrics': [dict(DAILY_QUOTES[0], label='上证指数 · 日涨跌'), dict(DAILY_QUOTES[1], label='上证转债 · 日涨跌')], 'fact': '10月23日，上证指数收于3,690.48点，较10月22日上涨0.89%；上证转债指数收于395.39点，上涨1.78%；上证国债指数收于231.57点，下跌0.01%。7天Shibor公布值为1.3260%，较前一公布日上行0.50BP。', 'impact': '权益和转债指数当日回升，上证国债指数变化较小。含有相关资产的产品可能受到不同影响，但方向与幅度还取决于实际仓位、久期、估值时点及费用。单日上涨不足以判断后续趋势，也不能直接判断某只产品当日净值。', 'talk': '10月23日部分权益和转债市场指标回升，但这不代表所有理财产品都会同步上涨。我们可以结合您持有产品的最新净值和正式披露，解释它的实际变化；后续表现仍有不确定性。', 'watch': '核对产品最新净值、实际投资范围和估值时点；持续观察资金利率与市场波动，避免只凭单日涨跌作出判断。', 'source_ids': ['equity', 'convertible', 'treasury', 'shibor23', 'shibor22', 'equity23']}
+        },
+        'weekly': {
+            'label': '最近完整交易周 · 2026.10.19—10.23', 'start': '2026-10-19', 'end': '2026-10-23', 'baseline': '2026-10-16',
+            'overview': {'as_of': '2026.10.23', 'period_label': '10.19—10.23 周度回顾', 'title': '日内回升之外，\n更要看清一周资产分化', 'summary': '10月19—23日，上证指数周跌0.69%，上证转债指数周涨1.68%；上证国债指数周涨0.02%。周涨跌以10月16日为基准。', 'focus': '区分日与周 · 区分市场与产品', 'snapshot_label': '10.19—10.23 · 对比10.16', 'quotes': WEEKLY_QUOTES},
+            'article': {'category': '每周解读 · 多资产', 'title': '10月19—23日：股债表现分化，单日回升不等于全周上涨', 'meta': '观察区间2026.10.19—10.23 · 基准2026.10.16 · 公开行情', 'metrics': [dict(WEEKLY_QUOTES[0], label='上证指数 · 周涨跌'), dict(WEEKLY_QUOTES[1], label='上证转债 · 周涨跌')], 'fact': '以10月16日收盘为基准，10月23日上证指数由3,716.28点降至3,690.48点，周跌0.69%；上证转债指数由388.87点升至395.39点，周涨1.68%；上证国债指数由231.52点升至231.57点，周涨0.02%。7天Shibor由1.3390%降至1.3260%，下行1.30BP。', 'impact': '本周所观察的权益、转债和国债指数表现存在差异。10月23日上证指数上涨，但全周仍下跌，说明日度和周度结论不能混用。不同资产组合的净值表现可能分化；资金利率变化也不直接等同于理财产品收益变化。', 'talk': '10月19—23日市场表现有所分化，周五的回升没有让所有指标的全周表现都转为上涨。解释您的产品时，需要看同一区间的净值、实际持仓和管理人披露，不能用一个指数代表整个组合。理财产品存在本金损失风险。', 'watch': '下期继续核对市场数据和产品披露；关注持仓集中度、久期与流动性安排。涉及具体操作时，应结合客户资金用途、风险承受能力及产品开放安排。', 'source_ids': ['equity', 'convertible', 'treasury', 'shibor23', 'shibor16', 'equity23', 'equity16']}
+        }
+    },
+    'alert': {'category': '异动点评 · 日周对照', 'title': '上证指数单日回升，为何全周仍下跌？', 'meta': '事件观察2026.10.23 · 周度区间10.19—10.23 · 公开行情', 'metrics': [dict(DAILY_QUOTES[0], label='上证指数 · 10月23日日涨跌'), dict(WEEKLY_QUOTES[0], label='上证指数 · 10月19—23日周涨跌')], 'fact': '10月23日，上证指数较前一交易日上涨0.89%，收于3,690.48点；但相对10月16日的3,716.28点仍下跌0.69%。两项数据观察区间不同，方向相反并不矛盾。', 'impact': '这是日度与周度口径对照，不是按预设阈值自动触发的异常预警。不能仅凭单日反弹确认趋势反转，也不能从指数涨跌直接推断具体产品的净值或受影响程度；涨跌原因需另有证据。', 'talk': '“昨天上涨”和“这周下跌”可以同时成立，因为比较的起点不同。我们会用与您查看净值相同的区间来解释变化，并结合产品实际持仓核实影响，不据此承诺回本时间或未来收益。', 'watch': '先确认客户询问的是哪一天、哪一周及哪只产品，再核对对应净值和披露。', 'source_ids': ['equity', 'equity23', 'equity16']},
+    'research': {'category': '机构观点 · 公开采访摘读', 'title': '长期观察：盈利与产业创新如何支撑市场信心', 'meta': '华创证券张瑜 · 2026.10.23公开采访 · 非独立研报', 'metrics': [], 'fact': '据上海证券报10月23日公开采访，华创证券首席经济学家张瑜强调，市场信心的长期支撑需关注企业盈利和产业创新。本页作简要转述，完整表述以原文为准。', 'impact': '该观点讨论长期逻辑，没有提供具体产品收益预测。盈利改善的持续性、产业创新转化为利润的进程仍需数据检验；市场价格也会受到估值、流动性等多种因素影响。本页补充的风险提示不代表受访者原文表述。', 'talk': '这是一位机构研究人士在特定日期的公开观点，适合作为观察市场的一个角度。具体产品仍需核对投资范围、风险等级及管理人披露，不能把机构观点当作收益保证或统一交易依据。', 'watch': '跟踪企业盈利及后续正式研究；引用时保留机构、作者、原始日期和来源，不截取成确定性预测。', 'source_ids': ['viewpoint']}
+}
+
+(DIST/'market-edition.json').write_text(json.dumps(edition, ensure_ascii=False, indent=2)+'\n')
+overview = dict(edition['periods']['daily']['overview'], edition_date=edition['edition_date'], source_note=METHODOLOGY)
+(DIST/'overview.json').write_text(json.dumps(overview, ensure_ascii=False, indent=2)+'\n')
+out = DIST/'editions'/'2026-10-24'
+out.mkdir(parents=True, exist_ok=True)
+for name in ['daily', 'weekly', 'alert', 'research']:
+    article = edition['periods'][name]['article'] if name in ['daily', 'weekly'] else edition[name]
+    lines = ['# '+article['title'], '', '【内部草案·待机构审核】', article['meta'], '', '## '+('核心观点' if name=='research' else '发生了什么'), article['fact'], '', '## '+('依据与风险' if name=='research' else '可能影响'), article['impact'], '', '## 沟通参考', article['talk'], '', '## 关注', article['watch'], '', COMMON_RISK, '', '## 数据与来源']
+    if name in ['daily', 'weekly']:
+        for q in edition['periods'][name]['overview']['quotes']:
+            lines.append(f'- {q["name"]}：{q["value"]}{q["unit"]}；{q["basis"]}{q["change"]}；比较日{q["baseline_date"]}、比较值{q["baseline_value"]}{q["unit"]}。')
+    lines += ['', METHODOLOGY, '']
+    lines += [f'- {BY_ID[k]["name"]}：{BY_ID[k]["url"]}' for k in article['source_ids']]
+    (out/(name+'.md')).write_text('\n'.join(lines)+'\n')
+print('Built 2026-10-23 daily / 2026-10-19–23 weekly, alert and public-viewpoint drafts.')
