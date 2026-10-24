@@ -1,0 +1,17 @@
+{
+  "mode": "template",
+  "scene_id": "S02",
+  "as_of": null,
+  "period": null,
+  "benchmark": null,
+  "snapshot_id": null,
+  "content_version": "draft-1.0",
+  "template_version": "1.0",
+  "quality_status": "unbound",
+  "review_status": "draft",
+  "validated_scene_id": null,
+  "audience": "manager_internal",
+  "external_use_allowed": false,
+  "source_refs": [],
+  "fields": {}
+}

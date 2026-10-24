@@ -1,0 +1,64 @@
+{
+  "as_of": "2026.10.23",
+  "period_label": "10.23 收盘观察",
+  "title": "权益与转债回升，\n看清市场与产品的差别",
+  "summary": "上证指数日涨0.89%，上证转债指数日涨1.78%；上证国债指数微跌0.01%。单日表现不能直接推算产品净值。",
+  "focus": "关注持仓 · 久期 · 估值时点",
+  "snapshot_label": "2026.10.23 · 收盘 / 当日公布值",
+  "quotes": [
+    {
+      "key": "equity",
+      "name": "上证指数",
+      "value": "3,690.48",
+      "unit": "点",
+      "baseline_value": "3,658.03",
+      "baseline_date": "2026-10-22",
+      "change": "+0.89%",
+      "direction": "rise",
+      "basis": "日涨跌",
+      "source_name": "英为财情｜上证指数历史行情",
+      "source_url": "https://cn.investing.com/indices/shanghai-composite-historical-data"
+    },
+    {
+      "key": "convertible",
+      "name": "上证转债指数",
+      "value": "395.39",
+      "unit": "点",
+      "baseline_value": "388.48",
+      "baseline_date": "2026-10-22",
+      "change": "+1.78%",
+      "direction": "rise",
+      "basis": "日涨跌",
+      "source_name": "英为财情｜上证转债历史行情",
+      "source_url": "https://cn.investing.com/indices/sse-convertible-bond-historical-data"
+    },
+    {
+      "key": "treasury",
+      "name": "上证国债指数",
+      "value": "231.57",
+      "unit": "点",
+      "baseline_value": "231.59",
+      "baseline_date": "2026-10-22",
+      "change": "−0.01%",
+      "direction": "fall",
+      "basis": "日涨跌",
+      "source_name": "英为财情｜上证国债历史行情",
+      "source_url": "https://cn.investing.com/indices/shanghai-se-treasury-bond-historical-data"
+    },
+    {
+      "key": "shibor",
+      "name": "7天 Shibor",
+      "value": "1.3260",
+      "unit": "%",
+      "baseline_value": "1.3210",
+      "baseline_date": "2026-10-22",
+      "change": "+0.50 BP",
+      "direction": "rise",
+      "basis": "日变动",
+      "source_name": "新华财经｜2026年10月23日Shibor",
+      "source_url": "https://www.cnfin.com/yw-lb/detail/20261023/4485796_1.html"
+    }
+  ],
+  "edition_date": "2026年10月24日",
+  "source_note": "指数涨跌幅＝（期末收盘值÷比较日收盘值−1）×100%；采用公开页面显示的两位小数点位计算，可能与原始精度结果有尾差。Shibor变动＝（期末利率−比较日利率）×100，单位为BP，1BP＝0.01个百分点。指数不混用：上证转债不同于中证转债，上证国债不同于中债国债。数据为公开历史快照，非实时，未从Wind接口读取。"
+}
