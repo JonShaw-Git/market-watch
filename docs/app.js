@@ -4,9 +4,9 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const safeUrl = v => { try { const u = new URL(v); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; } };
 const ICONS = {search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>'};
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-const MODULES = {daily:'每日解读',weekly:'每周回顾',research:'研报精选',alert:'异动点评'};
+const MODULES = {daily:'每日简评',weekly:'每周回顾',research:'研报精选',alert:'异动点评'};
 const state = {view:'market',period:'daily',query:'',limit:12,reader:null,module:'daily'};
-let edition, library;
+let edition, library, dailyStandard;
 let toastTimer;
 function toast(message) { ($('#reader').open ? $('#reader') : document.body).append($('#toast')); $('#toast').textContent=message; $('#toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').hidden=true,2600); }
 function key() { return state.view==='market' ? state.period : state.view; }
@@ -25,6 +25,24 @@ function briefingBody(a) {
 }
 function briefMarkdown(b) {
  return `## 一句话看点\n\n${b.headline}\n\n## 行情速览\n\n${b.glance.map(row=>`### ${row.label}${row.status==='pending'?'（待补充）':''}\n\n${row.text}`).join('\n\n')}\n\n## 重点事件\n\n${b.events.map(event=>'- '+event.title+'：'+event.text).join('\n')}\n\n## 风险提示\n\n${b.risk}\n\n## 配套极简卡片版\n\n标题：${b.preview.title}\n\n摘要：${b.preview.summary}\n\n提示：${b.preview.risk}\n`;
+}
+
+
+function standardBody() {
+ const s=dailyStandard;
+ return `<h3 class="standard-document-title">${esc(s.document_title)}</h3><p class="standard-intro">${esc(s.intro)}</p><h3 class="module-title">${esc(s.title)}</h3><div class="brief-headline"><strong>一句话看点</strong><p>${esc(s.headline)}</p></div><section class="brief-section"><h3>📈 行情速览</h3><div class="brief-market-list">${s.glance.map(row=>`<section class="brief-market"><h4>✅ ${esc(row.label)}</h4><p>${esc(row.text)}</p></section>`).join('')}</div></section><section class="brief-section"><h3>📰 重点事件</h3><ul class="brief-events">${s.events.map(event=>`<li>${esc(event.text)}</li>`).join('')}</ul></section><section class="brief-risk"><h3>⚠️ 风险提示</h3><p>${esc(s.risk)}</p></section><section class="standard-preview"><h3>【配套备用·极简卡片版（适合小程序首页列表预览）】</h3><div class="preview-card"><strong>标题：${esc(s.preview.title)}</strong><p>摘要：${esc(s.preview.summary)}</p><small>提示：${esc(s.preview.risk)}</small><button class="outline preview-copy" data-copy-standard-preview="true">复制卡片文案</button></div></section><section class="standard-reuse"><h3>📋 模板复用说明（给运营）</h3><ol>${s.reuse.map(text=>`<li>${esc(text)}</li>`).join('')}</ol><p class="standard-note">${esc(s.reuse_note)}</p></section>`;
+}
+function standardMarkdown() {
+ const s=dailyStandard;
+ return `# ${s.document_title}\n\n> 每日简评标准样版 · ${s.notice}\n\n${s.intro}\n\n## ${s.title}\n\n一句话看点：${s.headline}\n\n## 📈 行情速览\n\n${s.glance.map(row=>`### ✅ ${row.label}\n\n${row.text}`).join('\n\n')}\n\n## 📰 重点事件\n\n${s.events.map(event=>'- '+event.text).join('\n')}\n\n## ⚠️ 风险提示\n\n${s.risk}\n\n## 【配套备用·极简卡片版（适合小程序首页列表预览）】\n\n标题：${s.preview.title}\n\n摘要：${s.preview.summary}\n\n提示：${s.preview.risk}\n\n## 📋 模板复用说明（给运营）\n\n${s.reuse.map((text,i)=>`${i+1}. ${text}`).join('\n')}\n\n> ${s.reuse_note}\n`;
+}
+function standardCard() {
+ return `<article class="card article-card standard-card"><div class="tags"><span class="tag">每日简评 · 标准模板</span><span class="tag gold">用户提供示例 · 待核验</span></div><h2><button class="title-button" data-standard="true">每日简评标准样版</button></h2><p class="standard-notice">${esc(dailyStandard.notice)}</p>${standardBody()}<div class="article-footer"><button class="primary" data-standard="true">查看完整样版 ${icon('arrow')}</button><button class="outline" data-copy-standard="true">复制标准样版</button><a class="outline" href="daily-standard.md" download>下载标准样版 ↓</a></div></article>`;
+}
+function openStandard() {
+ state.reader={type:'standard'};$('#reader-kicker').textContent='每日简评 · 标准模板 · 待核验';$('#reader-title').textContent='每日简评标准样版';$('#module-switch').hidden=true;
+ $('#reader-body').innerHTML=`<p class="standard-notice">${esc(dailyStandard.notice)}</p>${standardBody()}`;
+ $('#reader-actions').innerHTML='<button class="primary" data-copy-standard="true">复制标准样版</button><a class="outline" href="daily-standard.md" download>下载标准样版 ↓</a>';showReader();
 }
 
 function metrics(a,template=false) {
@@ -62,11 +80,12 @@ function render() {
  $('#period-control').hidden=state.view!=='market'; $('#view-label').hidden=state.view==='market'; $('#view-label').textContent=state.view==='research'?'保留机构、作者、日期与原始来源':state.view==='alert'?'先核实事实，再解释可能影响':'';
  const ks=[key()];
  const actualKeys=ks.filter(matchesActual), scenarios=visibleScenarios();
- $('#article-list').innerHTML=actualKeys.map(k=>actualCard(k)).join('');
+ const showStandard=key()==='daily'&&(!state.query||JSON.stringify(dailyStandard).toLowerCase().includes(state.query.toLowerCase()));
+ $('#article-list').innerHTML=(showStandard?standardCard():'')+actualKeys.map(k=>k==='daily'?`<details class="current-reference"><summary>本期参考 · ${esc(actual(k).brief?.title || actual(k).title)}<span>展开 ↓</span></summary>${actualCard(k)}</details>`:actualCard(k)).join('');
  $('#template-section').hidden=false; $('#template-total').textContent=scenarios.length;
  $('#template-grid').innerHTML=scenarios.slice(0,state.limit).map(templateCard).join('');
  $('#load-more').hidden=state.limit>=scenarios.length; $('#load-more').textContent=`加载更多情景（还有${Math.max(0,scenarios.length-state.limit)}种） ↓`;
- $('#result-count').textContent=`${actualKeys.length}篇内容 · ${scenarios.length}种情景`;
+ $('#result-count').textContent=`${actualKeys.length+(showStandard?1:0)}篇内容 · ${scenarios.length}种情景`;
  if(!scenarios.length) $('#template-grid').innerHTML=`<div class="empty">没有匹配的情景，请试试其他关键词。</div>`;
  $('#loading').hidden=true;
 }
@@ -118,6 +137,9 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('button,a');if(!b) return;
  if(b.dataset.view) navigate(b.dataset.view);
  if(b.dataset.period) {state.period=b.dataset.period;state.limit=12;history.replaceState(null,'','#'+state.period);render();}
+ if(b.dataset.standard) openStandard();
+ if(b.dataset.copyStandard) copyText(standardMarkdown());
+ if(b.dataset.copyStandardPreview) {const s=dailyStandard;copyText(`【用户提供示例 · 待核验】\n${s.notice}\n\n标题：${s.preview.title}\n\n摘要：${s.preview.summary}\n\n提示：${s.preview.risk}`);}
  if(b.dataset.actual) openActual(b.dataset.actual);
  if(b.dataset.scene) openScene(b.dataset.scene);
  if(b.dataset.module) {state.module=b.dataset.module;renderSceneReader();$('#reader-body').scrollTop=0;}
@@ -136,7 +158,7 @@ $('#overview-read').addEventListener('click',()=>openActual(state.period));
 async function init() {
  document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
  const hash=location.hash.slice(1);if(hash==='saved')history.replaceState(null,'','#daily');if(['daily','weekly'].includes(hash))state.period=hash;else if(['market','research','alert'].includes(hash))state.view=hash;
- try {const results=await Promise.all(['market-edition.json','template-library.json'].map(async path=>{const r=await fetch(path);if(!r.ok)throw Error(path);return r.json();}));[edition,library]=results;if(library.scenarios.length!==60)throw Error('模板库不完整');render();}
+ try {const results=await Promise.all(['market-edition.json','template-library.json','daily-standard.json'].map(async path=>{const r=await fetch(path);if(!r.ok)throw Error(path);return r.json();}));[edition,library,dailyStandard]=results;if(library.scenarios.length!==60)throw Error('模板库不完整');render();}
  catch {$('#loading').textContent='内容暂时未能载入，请刷新页面重试。';}
 }
 init();
