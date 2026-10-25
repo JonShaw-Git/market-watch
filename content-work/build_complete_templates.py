@@ -10,11 +10,12 @@ import json
 import re
 import shutil
 import zipfile
+from brief_format import template_brief, brief_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 OUT = DIST / 'template-files'
-VERSION = '2.0.2'
+VERSION = '2.1.0'
 MODULE_NAMES = {'daily': '每日解读', 'weekly': '每周回顾', 'research': '研报精选', 'alert': '异动点评'}
 COMMON_RISK = '市场有风险，理财非存款。市场指标不等于具体产品收益；产品可能发生本金损失，过往表现不代表未来。涉及具体产品的信息以管理人及销售机构正式披露为准。'
 COMMON_SOURCE = '记录〔Wind表名/指标代码〕、〔字段名称〕、〔单位〕、〔市场/币种/估值口径〕、〔数据时点与时区〕、〔比较基准〕及〔提取时间〕；使用机构已有数据服务供数，经校验后填入，不代表本模板已连接Wind。事件须附正式原文链接，产品须附管理人或销售机构正式披露。'
@@ -371,6 +372,8 @@ def module_for(scene, kind):
     if group == '数据状态':
         base['summary'] = '数据状态提示：' + base['summary']
         base['risk'] += ' 数据未恢复有效前暂停走势判断与自动发布，保留最后有效时点并醒目标识。'
+    if kind in {'daily', 'weekly'}:
+        base['brief'] = template_brief(scene, kind, base)
     return base
 
 
@@ -381,6 +384,13 @@ def slug(text):
 def module_md(scene, key, mod):
     lines = [f"# {mod['title']}", '', '> 内部模板草案 · 所有〔字段〕须核实填入 · 待机构审核', '',
              f"情景：{scene['id']} {scene['name']}｜分类：{scene['group']}｜优先级：{scene['priority']}", '']
+    if 'brief' in mod:
+        lines += [mod['meta'], '', brief_markdown(mod['brief']), '## 内部沟通与核验', '',
+                  '适用条件：' + mod['trigger'], '', '可能影响：' + mod['impact'], '',
+                  '沟通参考：' + mod['talk'], '', '后续关注：' + mod['watch'], '',
+                  '来源要求：' + mod['sources'], '', '避免表述：' + mod['avoid'], '',
+                  '审核说明：' + mod['review_note']]
+        return '\n'.join(lines) + '\n'
     for heading, field in [('适用及触发条件', 'trigger'), ('展示摘要', 'summary'), ('内容信息', 'meta'),
                            ('发生了什么', 'fact'), ('如何理解', 'impact'), ('客户沟通参考', 'talk'),
                            ('接下来关注', 'watch')]:

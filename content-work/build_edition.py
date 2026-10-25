@@ -2,6 +2,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 import json
+from brief_format import edition_brief, brief_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
@@ -67,6 +68,13 @@ edition = {
     'research': {'category': '机构观点 · 公开采访摘读', 'title': '长期观察：盈利与产业创新如何支撑市场信心', 'meta': '华创证券张瑜 · 2026.10.23公开采访 · 非独立研报', 'metrics': [], 'fact': '据上海证券报10月23日公开采访，华创证券首席经济学家张瑜强调，市场信心的长期支撑需关注企业盈利和产业创新。本页作简要转述，完整表述以原文为准。', 'impact': '该观点讨论长期逻辑，没有提供具体产品收益预测。盈利改善的持续性、产业创新转化为利润的进程仍需数据检验；市场价格也会受到估值、流动性等多种因素影响。本页补充的风险提示不代表受访者原文表述。', 'talk': '这是一位机构研究人士在特定日期的公开观点，适合作为观察市场的一个角度。具体产品仍需核对投资范围、风险等级及管理人披露，不能把机构观点当作收益保证或统一交易依据。', 'watch': '跟踪企业盈利及后续正式研究；引用时保留机构、作者、原始日期和来源，不截取成确定性预测。', 'source_ids': ['viewpoint']}
 }
 
+for kind in ('daily', 'weekly'):
+    period = edition['periods'][kind]
+    period['article']['brief'] = edition_brief(kind, period, edition['research'])
+    period['article']['source_ids'] = list(dict.fromkeys(period['article']['source_ids'] + ['viewpoint']))
+edition['edition_id'] = '2026-10-24-public-brief-2'
+edition['brief_format_version'] = '1.0'
+
 (DIST/'market-edition.json').write_text(json.dumps(edition, ensure_ascii=False, indent=2)+'\n')
 overview = dict(edition['periods']['daily']['overview'], edition_date=edition['edition_date'], source_note=METHODOLOGY)
 (DIST/'overview.json').write_text(json.dumps(overview, ensure_ascii=False, indent=2)+'\n')
@@ -75,6 +83,11 @@ out.mkdir(parents=True, exist_ok=True)
 for name in ['daily', 'weekly', 'alert', 'research']:
     article = edition['periods'][name]['article'] if name in ['daily', 'weekly'] else edition[name]
     lines = ['# '+article['title'], '', '【内部草案·待机构审核】', article['meta'], '', '## '+('核心观点' if name=='research' else '发生了什么'), article['fact'], '', '## '+('依据与风险' if name=='research' else '可能影响'), article['impact'], '', '## 沟通参考', article['talk'], '', '## 关注', article['watch'], '', COMMON_RISK, '', '## 数据与来源']
+    if name in ['daily', 'weekly']:
+        lines = ['# ' + article['brief']['title'], '', '【内部草案·待机构审核】', article['meta'], '',
+                 brief_markdown(article['brief']), '## 内部沟通与核验', '',
+                 '可能影响：' + article['impact'], '', '沟通参考：' + article['talk'], '',
+                 '后续关注：' + article['watch'], '', '## 数据与来源']
     if name in ['daily', 'weekly']:
         for q in edition['periods'][name]['overview']['quotes']:
             lines.append(f'- {q["name"]}：{q["value"]}{q["unit"]}；{q["basis"]}{q["change"]}；比较日{q["baseline_date"]}、比较值{q["baseline_value"]}{q["unit"]}。')
