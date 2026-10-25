@@ -2,6 +2,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 import json
+from alert_format import commentary, alert_markdown
 from brief_format import edition_brief, brief_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,7 +73,8 @@ for kind in ('daily', 'weekly'):
     period = edition['periods'][kind]
     period['article']['brief'] = edition_brief(kind, period, edition['research'])
     period['article']['source_ids'] = list(dict.fromkeys(period['article']['source_ids'] + ['viewpoint']))
-edition['edition_id'] = '2026-10-24-public-brief-2'
+edition['alert']['alert_brief'] = commentary(edition['alert'])
+edition['edition_id'] = '2026-10-24-public-brief-3'
 edition['brief_format_version'] = '1.0'
 
 (DIST/'market-edition.json').write_text(json.dumps(edition, ensure_ascii=False, indent=2)+'\n')
@@ -88,6 +90,8 @@ for name in ['daily', 'weekly', 'alert', 'research']:
                  brief_markdown(article['brief']), '## 内部沟通与核验', '',
                  '可能影响：' + article['impact'], '', '沟通参考：' + article['talk'], '',
                  '后续关注：' + article['watch'], '', '## 数据与来源']
+    if name == 'alert':
+        lines = ['# '+article['title'], '', '【内部草案·待机构审核】', article['meta'], '', alert_markdown(article['alert_brief']), '## 数据与来源']
     if name in ['daily', 'weekly']:
         for q in edition['periods'][name]['overview']['quotes']:
             lines.append(f'- {q["name"]}：{q["value"]}{q["unit"]}；{q["basis"]}{q["change"]}；比较日{q["baseline_date"]}、比较值{q["baseline_value"]}{q["unit"]}。')

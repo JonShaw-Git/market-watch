@@ -11,12 +11,14 @@ import re
 import shutil
 import zipfile
 from build_daily_standard import STANDARD, markdown as standard_markdown
+from alert_format import commentary, alert_markdown
+from build_alert_standard import STANDARD as ALERT_STANDARD
 from brief_format import template_brief, brief_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 OUT = DIST / 'template-files'
-VERSION = '2.2.0'
+VERSION = '2.3.0'
 MODULE_NAMES = {'daily': '每日简评', 'weekly': '每周回顾', 'research': '研报精选', 'alert': '异动点评'}
 COMMON_RISK = '市场有风险，理财非存款。市场指标不等于具体产品收益；产品可能发生本金损失，过往表现不代表未来。涉及具体产品的信息以管理人及销售机构正式披露为准。'
 COMMON_SOURCE = '记录〔Wind表名/指标代码〕、〔字段名称〕、〔单位〕、〔市场/币种/估值口径〕、〔数据时点与时区〕、〔比较基准〕及〔提取时间〕；使用机构已有数据服务供数，经校验后填入，不代表本模板已连接Wind。事件须附正式原文链接，产品须附管理人或销售机构正式披露。'
@@ -375,6 +377,8 @@ def module_for(scene, kind):
         base['risk'] += ' 数据未恢复有效前暂停走势判断与自动发布，保留最后有效时点并醒目标识。'
     if kind in {'daily', 'weekly'}:
         base['brief'] = template_brief(scene, kind, base)
+    if kind == 'alert':
+        base['alert_brief'] = commentary(base, scene)
     return base
 
 
@@ -385,6 +389,11 @@ def slug(text):
 def module_md(scene, key, mod):
     lines = [f"# {mod['title']}", '', '> 内部模板草案 · 所有〔字段〕须核实填入 · 待机构审核', '',
              f"情景：{scene['id']} {scene['name']}｜分类：{scene['group']}｜优先级：{scene['priority']}", '']
+    if 'alert_brief' in mod:
+        lines += [mod['meta'], '', alert_markdown(mod['alert_brief']), '## 内部核验与审查', '',
+                  '启用条件：' + mod['trigger'], '', '来源要求：' + mod['sources'], '',
+                  '避免表述：' + mod['avoid'], '', '审核说明：' + mod['review_note']]
+        return '\n'.join(lines) + '\n'
     if 'brief' in mod:
         lines += [mod['meta'], '', brief_markdown(mod['brief']), '## 内部沟通与核验', '',
                   '适用条件：' + mod['trigger'], '', '可能影响：' + mod['impact'], '',
@@ -478,12 +487,16 @@ def main():
     (OUT / '01_审核与消保说明.md').write_text(review)
     (DIST / 'daily-standard.json').write_text(json.dumps(STANDARD, ensure_ascii=False, indent=2) + '\n')
     (DIST / 'daily-standard.md').write_text(standard_markdown(STANDARD))
+    (DIST / 'alert-standard.json').write_text(json.dumps(ALERT_STANDARD, ensure_ascii=False, indent=2) + '\n')
+    (DIST / 'alert-standard.md').write_text(alert_markdown(ALERT_STANDARD))
     with zipfile.ZipFile(DIST / 'market-template-library.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(OUT.rglob('*')):
             if path.is_file():
                 archive.write(path, str(path.relative_to(OUT)))
         archive.write(DIST / 'daily-standard.json', 'daily-standard.json')
         archive.write(DIST / 'daily-standard.md', 'daily-standard.md')
+        archive.write(DIST / 'alert-standard.json', 'alert-standard.json')
+        archive.write(DIST / 'alert-standard.md', 'alert-standard.md')
     validate(library, original)
     print(f'Generated {len(scenes)} scenarios, {len(scenes)*4} independent modules, {len(list(OUT.rglob("*.md")))} Markdown files.')
     print(DIST / 'template-library.json')

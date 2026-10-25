@@ -48,3 +48,15 @@ with zipfile.ZipFile(dist/'market-template-library.zip') as z:
     for name in ('daily-standard.json','daily-standard.md'):
         assert z.read(name)==(dist/name).read_bytes()
 print('PASS: standard sample, original preview/reuse notes, and ZIP agree')
+
+alert=json.loads((dist/'alert-standard.json').read_text())
+assert alert['status']=='unverified_user_sample' and alert['publication_date']=='YYYY-MM-DD'
+assert len(alert['causes'])==3 and len(alert['outlook'])==2 and len(alert['allocation'])==3
+assert alert['service']['status']=='unconfigured' and '截断' in alert['source_note']
+for a in [edition['alert']['alert_brief']]+[s['modules']['alert']['alert_brief'] for s in lib['scenarios']]:
+    assert len(a['causes'])==3 and len(a['outlook'])==2 and a['allocation_note'] and a['risk'] and a['preview']['risk']
+    assert a['service']['status']=='unconfigured'
+with zipfile.ZipFile(dist/'market-template-library.zip') as z:
+    for name in ('alert-standard.json','alert-standard.md'):
+        assert z.read(name)==(dist/name).read_bytes()
+print('PASS: alert standard, 60 scenario commentaries, current edition, and ZIP are complete')
