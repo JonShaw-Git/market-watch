@@ -2,21 +2,17 @@
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeUrl = v => { try { const u = new URL(v); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; } };
-const ICONS = {search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',bookmark:'<path d="M6 3h12v18l-6-4-6 4z"/>',arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>'};
+const ICONS = {search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>'};
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-const MODULES = {daily:'每日解读',weekly:'每周回顾',research:'研报精读',alert:'异动快评'};
-const FILTERS = [['all','全部'],['bond','债券/信用'],['equity','权益/转债'],['funding','资金'],['fx','汇率'],['gold','黄金'],['overseas','海外'],['multi','多资产'],['event','政策/事件'],['product','产品'],['data','数据']];
-const state = {view:'market',period:'daily',filter:'all',query:'',limit:12,reader:null,module:'daily'};
-let edition, library, saved = new Set();
-try { const data = JSON.parse(localStorage.getItem('market-watch-saved-v2') || '[]'); if (Array.isArray(data)) saved = new Set(data.filter(x=>typeof x==='string')); } catch {}
+const MODULES = {daily:'每日解读',weekly:'每周回顾',research:'研报精选',alert:'异动点评'};
+const state = {view:'market',period:'daily',query:'',limit:12,reader:null,module:'daily'};
+let edition, library;
 let toastTimer;
 function toast(message) { ($('#reader').open ? $('#reader') : document.body).append($('#toast')); $('#toast').textContent=message; $('#toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').hidden=true,2600); }
-function key() { return state.view==='market' || state.view==='saved' ? state.period : state.view; }
+function key() { return state.view==='market' ? state.period : state.view; }
 function actual(k) { return edition.periods[k]?.article || edition[k]; }
 function sources(a) { return edition.sources.filter(s=>(a.source_ids || []).includes(s.id)); }
 function links(a) { return sources(a).map(s=>safeUrl(s.url) ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.name)} ↗</a>` : '').join(''); }
-function saveButton(id) { return `<button class="icon-btn" data-save="${esc(id)}" aria-label="${saved.has(id)?'取消收藏':'收藏'}" aria-pressed="${saved.has(id)}">${icon('bookmark')}</button>`; }
-function syncSaved() { try { localStorage.setItem('market-watch-saved-v2',JSON.stringify([...saved])); } catch { toast('浏览器未允许保存，收藏仅在本次访问有效'); } }
 function renderOverview() {
  const p = edition.periods[state.period], d=p.overview;
  $('#edition-date').textContent=edition.edition_date; $('#brief-date').textContent=d.period_label; $('#brief-title').textContent=d.title; $('#brief-summary').textContent=d.summary; $('#brief-focus').textContent=d.focus; $('#snapshot-date').textContent=d.snapshot_label;
@@ -32,25 +28,21 @@ function bodySections(a,k,template=false) {
  return `${metrics(a,template)}<section class="body-section"><h3 class="section-title"><span class="keypoint-number">01</span>${labels[0]}</h3><p>${esc(a.fact)}</p></section><section class="body-section"><h3 class="section-title"><span class="keypoint-number">02</span>${labels[1]}</h3><p>${esc(a.impact)}</p></section><section class="talk-box"><h3>${labels[2]} <span>内部草案</span></h3><p>${esc(a.talk)}</p></section><p class="watch"><strong>${labels[3]}：</strong>${esc(a.watch)}</p><p class="risk">${esc(template ? a.risk : edition.risk)}</p>`;
 }
 function actualCard(k,compact=false) {
- const a=actual(k),id='edition:'+k;
- return `<article class="card article-card"><div class="article-topline"><div class="tags"><span class="tag">本期内容</span><span class="tag neutral">${esc(a.category)}</span><span class="tag gold">待机构审核</span></div>${saveButton(id)}</div><h2><button class="title-button" data-actual="${k}">${esc(a.title)}</button></h2><div class="article-meta">${esc(a.meta)}</div>${compact?`<p class="abstract">${esc(a.fact)}</p>`:`<div class="summary"><strong>本期摘要</strong>${esc(edition.periods[k]?.overview.summary || a.fact)}</div>${bodySections(a,k)}`}<div class="article-footer"><button class="primary" data-actual="${k}">${compact?'阅读完整内容':'查看来源与完整文案'} ${icon('arrow')}</button><button class="outline" data-copy-actual="${k}">复制草案</button><a class="outline" href="editions/2026-10-24/${k}.md" download>下载文案 ↓</a></div></article>`;
+ const a=actual(k);
+ return `<article class="card article-card"><div class="article-topline"><div class="tags"><span class="tag">本期内容</span><span class="tag neutral">${esc(a.category)}</span><span class="tag gold">待机构审核</span></div></div><h2><button class="title-button" data-actual="${k}">${esc(a.title)}</button></h2><div class="article-meta">${esc(a.meta)}</div>${compact?`<p class="abstract">${esc(a.fact)}</p>`:`<div class="summary"><strong>本期摘要</strong>${esc(edition.periods[k]?.overview.summary || a.fact)}</div>${bodySections(a,k)}`}<div class="article-footer"><button class="primary" data-actual="${k}">${compact?'阅读完整内容':'查看来源与完整文案'} ${icon('arrow')}</button><button class="outline" data-copy-actual="${k}">复制草案</button><a class="outline" href="editions/2026-10-24/${k}.md" download>下载文案 ↓</a></div></article>`;
 }
 function visibleScenarios() {
  return library.scenarios.filter(s=>{
- if(state.view==='saved'&&!saved.has('scene:'+s.id)) return false;
- if(state.filter!=='all'&&s.filter!==state.filter) return false;
  if(!state.query) return true;
  return JSON.stringify(s).toLowerCase().includes(state.query.toLowerCase());
  });
 }
 function templateCard(s) {
  const m=s.modules[key()];
- return `<article class="card template-card"><div class="article-topline"><div class="tags"><span class="template-id">${esc(s.id)}</span><span class="tag neutral">${esc(s.group)}</span></div>${saveButton('scene:'+s.id)}</div><h3><button class="title-button" data-scene="${s.id}">${esc(s.name)}</button></h3><p class="template-summary">${esc(m.summary)}</p><div class="template-meta"><span>${esc(MODULES[key()])} · 待填待审</span><span>4类文案</span></div><div class="template-actions"><button class="outline" data-scene="${s.id}">查看模板 ${icon('arrow')}</button><button data-download-scene="${s.id}" class="download-link">下载 ↓</button></div></article>`;
+ return `<article class="card template-card"><div class="article-topline"><div class="tags"><span class="template-id">${esc(s.id)}</span></div></div><h3><button class="title-button" data-scene="${s.id}">${esc(s.name)}</button></h3><p class="template-summary">${esc(m.summary)}</p><div class="template-meta"><span>${esc(MODULES[key()])} · 待填待审</span><span>4类文案</span></div><div class="template-actions"><button class="outline" data-scene="${s.id}">查看模板 ${icon('arrow')}</button><button data-download-scene="${s.id}" class="download-link">下载 ↓</button></div></article>`;
 }
 function matchesActual(k) {
  const a=actual(k);
- if(state.view==='saved'&&!saved.has('edition:'+k)) return false;
- if(state.filter!=='all') { if(state.filter!=='multi'&&!(k==='research'&&state.filter==='equity')) return false; }
  return !state.query || JSON.stringify(a).toLowerCase().includes(state.query.toLowerCase());
 }
 function render() {
@@ -58,18 +50,15 @@ function render() {
  renderOverview();
  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===state.view)));
  document.querySelectorAll('[data-period]').forEach(b=>{b.classList.toggle('selected',b.dataset.period===state.period); b.setAttribute('aria-pressed',String(b.dataset.period===state.period));});
- $('#period-control').hidden=state.view!=='market'; $('#view-label').hidden=state.view==='market'; $('#view-label').textContent=state.view==='research'?'保留机构、作者、日期与原始来源':state.view==='alert'?'先核实事实，再解释可能影响':'收藏保存在当前浏览器';
- $('#saved-count').textContent=saved.size;
- $('#filters').innerHTML=FILTERS.map(([id,label])=>`<button data-filter="${id}" class="${state.filter===id?'selected':''}" aria-pressed="${state.filter===id}">${label}</button>`).join('');
- const ks=state.view==='saved'?['daily','weekly','research','alert']:[key()];
+ $('#period-control').hidden=state.view!=='market'; $('#view-label').hidden=state.view==='market'; $('#view-label').textContent=state.view==='research'?'保留机构、作者、日期与原始来源':state.view==='alert'?'先核实事实，再解释可能影响':'';
+ const ks=[key()];
  const actualKeys=ks.filter(matchesActual), scenarios=visibleScenarios();
- $('#article-list').innerHTML=actualKeys.map(k=>actualCard(k,state.view==='saved')).join('');
+ $('#article-list').innerHTML=actualKeys.map(k=>actualCard(k)).join('');
  $('#template-section').hidden=false; $('#template-total').textContent=scenarios.length;
  $('#template-grid').innerHTML=scenarios.slice(0,state.limit).map(templateCard).join('');
  $('#load-more').hidden=state.limit>=scenarios.length; $('#load-more').textContent=`加载更多情景（还有${Math.max(0,scenarios.length-state.limit)}种） ↓`;
  $('#result-count').textContent=`${actualKeys.length}篇内容 · ${scenarios.length}种情景`;
- if(!scenarios.length) $('#template-grid').innerHTML=`<div class="empty">${state.view==='saved'?'还没有符合条件的情景收藏，点击卡片右上角书签即可收藏。':'没有匹配的情景，请试试其他关键词或分类。'}</div>`;
- if(!actualKeys.length&&state.view==='saved'&&!saved.size) $('#article-list').innerHTML='<div class="card empty">收藏常用内容与模板，方便下次快速查看。</div>';
+ if(!scenarios.length) $('#template-grid').innerHTML=`<div class="empty">没有匹配的情景，请试试其他关键词。</div>`;
  $('#loading').hidden=true;
 }
 function actualMarkdown(k) {
@@ -98,20 +87,18 @@ function openActual(k) {
 }
 function renderSceneReader() {
  const s=library.scenarios.find(x=>x.id===state.reader.id),m=s.modules[state.module];
- $('#reader-kicker').textContent=s.id+' · '+s.group+' · 待填待审'; $('#reader-title').textContent=s.name; $('#module-switch').hidden=false;
+ $('#reader-kicker').textContent=s.id+' · 待填待审'; $('#reader-title').textContent=s.name; $('#module-switch').hidden=false;
  $('#module-switch').innerHTML=Object.entries(MODULES).map(([k,label])=>`<button data-module="${k}" class="${state.module===k?'selected':''}" aria-pressed="${state.module===k}">${label}</button>`).join('');
  $('#reader-body').innerHTML=`<h3 class="module-title">${esc(m.title)}</h3><div class="article-meta">${esc(m.meta)}</div><div class="summary"><strong>模板摘要</strong>${esc(m.summary)}</div><p class="trigger"><strong>启用条件：</strong>${esc(m.trigger)}</p>${bodySections(m,state.module,true)}<details class="review-details"><summary>来源要求与审查要点</summary><h4>来源要求</h4><ul>${asList(m.sources).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>避免表述</h4><ul>${asList(m.avoid).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(m.review_note)}</p><p>当前为模板，〔字段〕须补齐并经审核；不满足来源或触发条件时不发布。本库覆盖常见情景，实际市场可能出现组合情景，使用时需人工判断。</p></details>`;
  $('#reader-actions').innerHTML=`<button class="primary" data-copy-scene="${s.id}">复制本模块草案</button><button class="outline" data-download-module="${s.id}">下载本模块 ↓</button><button class="outline" data-download-scene="${s.id}">下载全部4类 ↓</button>`;
 }
 function showReader() { if(!$('#reader').open) { $('#reader').showModal();document.body.classList.add('dialog-open'); } $('#reader-body').scrollTop=0; }
 function openScene(id) { state.reader={type:'scene',id};state.module=key();renderSceneReader();showReader(); }
-function navigate(view) { state.view=view;state.limit=12;state.filter='all';state.query='';$('#search').value='';history.replaceState(null,'','#'+(view==='market'?state.period:view));render(); }
+function navigate(view) { state.view=view;state.limit=12;state.query='';$('#search').value='';history.replaceState(null,'','#'+(view==='market'?state.period:view));render(); }
 document.addEventListener('click',e=>{
  const b=e.target.closest('button,a');if(!b) return;
  if(b.dataset.view) navigate(b.dataset.view);
  if(b.dataset.period) {state.period=b.dataset.period;state.limit=12;history.replaceState(null,'','#'+state.period);render();}
- if(b.dataset.filter) {state.filter=b.dataset.filter;state.limit=12;render();}
- if(b.dataset.save) {const id=b.dataset.save; saved.has(id)?saved.delete(id):saved.add(id);syncSaved();render();}
  if(b.dataset.actual) openActual(b.dataset.actual);
  if(b.dataset.scene) openScene(b.dataset.scene);
  if(b.dataset.module) {state.module=b.dataset.module;renderSceneReader();$('#reader-body').scrollTop=0;}
@@ -128,7 +115,7 @@ $('#reader').addEventListener('click',e=>{if(e.target===$('#reader')) {const r=$
 $('#overview-read').addEventListener('click',()=>openActual(state.period));
 async function init() {
  document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
- const hash=location.hash.slice(1);if(['daily','weekly'].includes(hash))state.period=hash;else if(['market','research','alert','saved'].includes(hash))state.view=hash;
+ const hash=location.hash.slice(1);if(hash==='saved')history.replaceState(null,'','#daily');if(['daily','weekly'].includes(hash))state.period=hash;else if(['market','research','alert'].includes(hash))state.view=hash;
  try {const results=await Promise.all(['market-edition.json','template-library.json'].map(async path=>{const r=await fetch(path);if(!r.ok)throw Error(path);return r.json();}));[edition,library]=results;if(library.scenarios.length!==60)throw Error('模板库不完整');render();}
  catch {$('#loading').textContent='内容暂时未能载入，请刷新页面重试。';}
 }

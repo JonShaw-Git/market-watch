@@ -437,7 +437,7 @@ dialog.reader::backdrop { background: #23365b70; backdrop-filter: blur(3px); }
   .snapshot-sources summary { min-height: 40px; font-size: 10px; }
   .snapshot-sources a { min-height: 42px; font-size: 12px; margin-right: 15px; }
   .content-nav { position: sticky; top: 0; z-index: 15; background: #f5f7fff5; backdrop-filter: blur(8px); margin: 0 -16px 14px; padding: 0 16px; }
-  .module-tabs { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .module-tabs { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
   .module-tabs button { min-height: 50px; padding: 11px 3px 12px; font-size: 14px; text-align: center; }
   .module-tabs button > span { display: none; }
   .module-tabs button[aria-selected="true"]::after { left: 12%; right: 12%; }
@@ -537,3 +537,7 @@ dialog.reader::backdrop { background: #23365b70; backdrop-filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Three unified content columns; keep the established palette. */
+.result-row { display:flex; justify-content:flex-end; margin:0 0 16px; min-height:22px; }
+@media (max-width:600px) { .result-row { margin-bottom:12px; } }
