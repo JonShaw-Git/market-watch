@@ -14,8 +14,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 OUT = DIST / 'template-files'
-VERSION = '2.0.1'
-MODULE_NAMES = {'daily': '每日解读', 'weekly': '每周回顾', 'research': '研报精读', 'alert': '异动快评'}
+VERSION = '2.0.2'
+MODULE_NAMES = {'daily': '每日解读', 'weekly': '每周回顾', 'research': '研报精选', 'alert': '异动点评'}
 COMMON_RISK = '市场有风险，理财非存款。市场指标不等于具体产品收益；产品可能发生本金损失，过往表现不代表未来。涉及具体产品的信息以管理人及销售机构正式披露为准。'
 COMMON_SOURCE = '记录〔Wind表名/指标代码〕、〔字段名称〕、〔单位〕、〔市场/币种/估值口径〕、〔数据时点与时区〕、〔比较基准〕及〔提取时间〕；使用机构已有数据服务供数，经校验后填入，不代表本模板已连接Wind。事件须附正式原文链接，产品须附管理人或销售机构正式披露。'
 COMMON_REVIEW = '内部模板草案，待本机构业务、合规及消保审核。所有〔字段〕须完整核实；事实、解释与预期分开；原因不明时写明尚待核实。不得自动对客发布。'
@@ -323,7 +323,7 @@ def module_for(scene, kind):
         base['watch'] = '下周关注：〔正式数据或事件日程及日期〕；' + base['watch']
         base['avoid'] += ' 不得混用“本周”与“上周”的时间范围。'
     elif kind == 'research':
-        base['title'] = f'研报精读｜{name}的研究框架'
+        base['title'] = f'研报精选｜{name}的研究框架'
         base['summary'] = f'围绕{name}梳理〔报告机构〕的已授权报告；以下为待填结构，未填写并核验原文前不代表任何机构已发表观点。'
         base['meta'] = '〔报告机构〕 · 〔报告名称〕 · 发布于〔报告日期〕 · 引用截至〔核实时间〕 · 内部模板待审核'
         base['fact'] = ('报告信息：〔机构〕《〔报告名称〕》，作者〔作者〕，发布日期〔报告日期〕，原文链接〔原文链接〕，引用授权范围〔授权说明〕。'
@@ -351,7 +351,7 @@ def module_for(scene, kind):
             base['trigger'] = '需核实本情景对应的数据、消息或服务状态。未找到可查验并获授权的研究原文时，禁止作为研报发布；只能按机构规则提供经审查的核实状态提示。'
             base['avoid'] += ' 不得用核实提示冒充研报，不得虚构研究机构、报告或观点。'
     elif kind == 'alert':
-        base['title'] = f'异动快评｜{name}'
+        base['title'] = f'异动点评｜{name}'
         base['summary'] = f'截至〔核实时间〕，{name}达到本机构〔关注规则名称〕的核实条件。先呈现确认信息，原因尚待核实的部分明确保留。'
         base['meta'] = '核实于〔核实时间〕 · 规则版本〔规则版本〕 · 事件版本〔内容版本〕 · 内部模板待审核'
         alert_context = ('核实区间为〔核实起止时间及时区〕。' if event_like else
@@ -428,7 +428,7 @@ def main():
     (DIST / 'template-library.json').write_text(payload)
     (OUT / 'template-library.json').write_text(payload)
     index = ['# 看市场｜60种常见情景模板索引', '',
-             '版本：' + VERSION + '。状态：内部草案；全部数据均为〔字段〕占位。每日解读、每周回顾、研报精读、异动快评共240套内容。', '',
+             '版本：' + VERSION + '。状态：内部草案；全部数据均为〔字段〕占位。每日解读、每周回顾、研报精选、异动点评共240套内容。', '',
              '60种常见情景不是对未来的穷尽枚举。遇到复合事件，可并列使用相关情景，统一数据口径后人工编辑；不宜强行归入单一模板。', '',
              '文件组织：scenarios/每个情景一份完整文件（含四类模块）；template-library.json供页面或内容系统读取，页面可据此生成单模块下载文件。', '',
              '| 编号 | 情景 | 分类 | 完整文案 |', '| --- | --- | --- | --- |']
