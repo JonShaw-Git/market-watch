@@ -6,7 +6,7 @@ const ICONS = {search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 const MODULES = {daily:'每日简评',weekly:'每周回顾',research:'研报精选',alert:'异动点评'};
 const state = {view:'market',period:'daily',query:'',limit:12,reader:null,module:'daily'};
-let edition, library, dailyStandard;
+let edition, library, dailyStandard, alertStandard;
 let toastTimer;
 function toast(message) { ($('#reader').open ? $('#reader') : document.body).append($('#toast')); $('#toast').textContent=message; $('#toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').hidden=true,2600); }
 function key() { return state.view==='market' ? state.period : state.view; }
@@ -45,18 +45,47 @@ function openStandard() {
  $('#reader-actions').innerHTML='<button class="primary" data-copy-standard="true">复制标准样版</button><a class="outline" href="daily-standard.md" download>下载标准样版 ↓</a>';showReader();
 }
 
+
+function alertBody(a,standard=false) {
+ return `${a.document_title?`<h3 class="standard-document-title">${esc(a.document_title)}</h3><p class="standard-intro">${esc(a.intro)}</p>`:''}<p class="alert-series">📖 ${esc(a.series)}</p><h3 class="alert-sample-title">${esc(a.title)}</h3><p class="article-meta">发布日期：${esc(a.publication_date)}</p><div class="brief-headline"><strong>开篇导语</strong>${a.opening.map(text=>`<p>${esc(text)}</p>`).join('')}</div><section class="brief-section"><h3>🔍 一、本次市场异动的主要原因</h3><ul class="brief-events">${a.causes.map(cause=>`<li><strong>${esc(cause.label)}</strong><span>${esc(cause.text)}</span>${cause.example?`<p class="alert-example">（示例：${esc(cause.example)}）</p>`:''}</li>`).join('')}</ul>${a.cause_note?`<p class="alert-boundary"><strong>核实边界：</strong>${esc(a.cause_note)}</p>`:''}</section><section class="brief-section"><h3>📌 二、市场展望：短期 &amp; 中长期视角</h3>${a.outlook.map(item=>`<section class="brief-market"><h4>✅ ${esc(item.label)}</h4><p>${esc(item.text)}</p></section>`).join('')}</section><section class="brief-section"><h3>🧾 三、资产配置参考建议</h3><p class="standard-intro">温馨提示：${esc(a.allocation_note)}</p><ul class="alert-allocation">${a.allocation.map(text=>`<li>${esc(text)}</li>`).join('')}</ul>${a.talk?`<p class="alert-boundary"><strong>沟通参考：</strong>${esc(a.talk)}</p>`:''}<div class="alert-service"><span>👉 小程序服务入口示意</span><strong>${esc(a.service.label)}</strong><p>${esc(a.service.copy)}</p><button class="outline" disabled aria-disabled="true">资产检视服务 · 待配置</button><small>${esc(a.service.note)}</small></div></section><section class="brief-risk"><h3>⚠️ ${esc(a.risk_heading || '风险提示')}</h3>${a.risk.map(text=>`<p>${esc(text)}</p>`).join('')}</section><section class="standard-preview"><h3>📎 配套：小程序首页卡片摘要（列表预览用，短版）</h3><div class="preview-card"><strong>${esc(a.preview.title)}</strong><p>${esc(a.preview.summary)}</p><small>小字：${esc(a.preview.risk)}</small><button class="outline preview-copy" data-copy-alert-preview="${standard?'standard':'content'}">复制卡片文案</button></div></section>${a.reuse?`<section class="standard-reuse"><h3>📋 运营复用说明</h3><ol>${a.reuse.map(text=>`<li>${esc(text)}</li>`).join('')}</ol></section>`:''}${a.source_note?`<p class="standard-note">${esc(a.source_note)}</p>`:''}`;
+}
+function alertMarkdown(a) {
+ const lines=[];
+ if(a.document_title)lines.push('# '+a.document_title,'','> 异动点评标准样版 · '+a.notice,'',a.intro,'','标题规范：'+a.series,'');
+ lines.push('## 📖 '+a.series,'','标题：'+a.title,'','发布日期：'+a.publication_date,'','### 开篇导语','',...a.opening,'','## 🔍 一、本次市场异动的主要原因','');
+ for(const cause of a.causes){lines.push('- '+cause.label+'：'+cause.text);if(cause.example)lines.push('','（示例：'+cause.example+'）');}
+ if(a.cause_note)lines.push('','核实边界：'+a.cause_note);
+ lines.push('','## 📌 二、市场展望：短期 & 中长期视角','');
+ for(const item of a.outlook)lines.push('### ✅ '+item.label,'',item.text,'');
+ lines.push('## 🧾 三、资产配置参考建议','','> 温馨提示：'+a.allocation_note,'',...a.allocation.map(text=>'- '+text));
+ if(a.talk)lines.push('','沟通参考：'+a.talk);
+ lines.push('','👉 小程序跳转按钮【'+a.service.label+'】','','（文案：'+a.service.copy+'）','','> '+a.service.note,'','## ⚠️ '+(a.risk_heading || '风险提示'),'',...a.risk,'','## 📎 配套：小程序首页卡片摘要（列表预览用，短版）','',a.preview.title+'｜'+a.preview.summary,'','> 小字：'+a.preview.risk);
+ if(a.reuse)lines.push('','## 📋 运营复用说明','',...a.reuse.map((text,i)=>`${i+1}. ${text}`));
+ if(a.source_note)lines.push('','> '+a.source_note);
+ return lines.join('\n')+'\n';
+}
+function alertStandardCard() {
+ return `<article class="card article-card standard-card"><div class="tags"><span class="tag">异动点评 · 标准模板</span><span class="tag gold">用户提供示例 · 待填待审</span></div><h2><button class="title-button" data-alert-standard="true">异动点评标准样版</button></h2><p class="standard-notice">${esc(alertStandard.notice)}</p>${alertBody(alertStandard,true)}<div class="article-footer"><button class="primary" data-alert-standard="true">查看完整样版 ${icon('arrow')}</button><button class="outline" data-copy-alert-standard="true">复制标准样版</button><a class="outline" href="alert-standard.md" download>下载标准样版 ↓</a></div></article>`;
+}
+function openAlertStandard() {
+ state.reader={type:'alert-standard'};$('#reader-kicker').textContent='异动点评 · 标准模板 · 待填待审';$('#reader-title').textContent='异动点评标准样版';$('#module-switch').hidden=true;
+ $('#reader-body').innerHTML=`<p class="standard-notice">${esc(alertStandard.notice)}</p>${alertBody(alertStandard,true)}`;
+ $('#reader-actions').innerHTML='<button class="primary" data-copy-alert-standard="true">复制标准样版</button><a class="outline" href="alert-standard.md" download>下载标准样版 ↓</a>';showReader();
+}
+
 function metrics(a,template=false) {
  if(!a.metrics?.length) return '';
  return `<div class="metrics">${a.metrics.map(m=>`<div class="metric"><span>${esc(m.label || m.name)}</span><strong class="${esc(m.direction || '')}">${esc(template ? m.value : m.change || m.value)}</strong>${!template&&m.baseline_date?`<small>对比 ${esc(m.baseline_date)}</small>`:''}</div>`).join('')}</div>`;
 }
 function bodySections(a,k,template=false) {
+ if(a.alert_brief) return alertBody(a.alert_brief);
  if(a.brief) return briefingBody(a);
  const labels = k==='research' && a.title.startsWith('核实提示') ? ['核实状态','影响与边界','沟通参考','后续核实'] : k==='research' ? ['核心观点','依据与风险','沟通参考','跟踪验证'] : k==='weekly' ? ['本周发生了什么','可能有什么影响','沟通参考','下期关注'] : ['发生了什么','可能有什么影响','沟通参考','后续关注'];
  return `${metrics(a,template)}<section class="body-section"><h3 class="section-title"><span class="keypoint-number">01</span>${labels[0]}</h3><p>${esc(a.fact)}</p></section><section class="body-section"><h3 class="section-title"><span class="keypoint-number">02</span>${labels[1]}</h3><p>${esc(a.impact)}</p></section><section class="talk-box"><h3>${labels[2]} <span>内部草案</span></h3><p>${esc(a.talk)}</p></section><p class="watch"><strong>${labels[3]}：</strong>${esc(a.watch)}</p><p class="risk">${esc(template ? a.risk : edition.risk)}</p>`;
 }
 function actualCard(k,compact=false) {
  const a=actual(k);
- return `<article class="card article-card"><div class="article-topline"><div class="tags"><span class="tag">本期内容</span><span class="tag neutral">${esc(a.category)}</span><span class="tag gold">待机构审核</span></div></div><h2><button class="title-button" data-actual="${k}">${esc(a.brief?.title || a.title)}</button></h2><div class="article-meta">${esc(a.meta)}</div>${a.brief?bodySections(a,k):compact?`<p class="abstract">${esc(a.fact)}</p>`:`<div class="summary"><strong>本期摘要</strong>${esc(edition.periods[k]?.overview.summary || a.fact)}</div>${bodySections(a,k)}`}<div class="article-footer"><button class="primary" data-actual="${k}">${compact?'阅读完整内容':'查看来源与完整文案'} ${icon('arrow')}</button><button class="outline" data-copy-actual="${k}">复制草案</button><a class="outline" href="editions/2026-10-24/${k}.md" download>下载文案 ↓</a></div></article>`;
+ return `<article class="card article-card"><div class="article-topline"><div class="tags"><span class="tag">本期内容</span><span class="tag neutral">${esc(a.category)}</span><span class="tag gold">待机构审核</span></div></div><h2><button class="title-button" data-actual="${k}">${esc(a.brief?.title || a.title)}</button></h2><div class="article-meta">${esc(a.meta)}</div>${(a.brief||a.alert_brief)?bodySections(a,k):compact?`<p class="abstract">${esc(a.fact)}</p>`:`<div class="summary"><strong>本期摘要</strong>${esc(edition.periods[k]?.overview.summary || a.fact)}</div>${bodySections(a,k)}`}<div class="article-footer"><button class="primary" data-actual="${k}">${compact?'阅读完整内容':'查看来源与完整文案'} ${icon('arrow')}</button><button class="outline" data-copy-actual="${k}">复制草案</button><a class="outline" href="editions/2026-10-24/${k}.md" download>下载文案 ↓</a></div></article>`;
 }
 function visibleScenarios() {
  return library.scenarios.filter(s=>{
@@ -66,7 +95,7 @@ function visibleScenarios() {
 }
 function templateCard(s) {
  const m=s.modules[key()];
- return `<article class="card template-card"><div class="article-topline"><div class="tags"><span class="template-id">${esc(s.id)}</span></div></div><h3><button class="title-button" data-scene="${s.id}">${esc(s.name)}</button></h3><p class="template-summary">${esc(m.brief?.preview.summary || m.summary)}</p><div class="template-meta"><span>${esc(MODULES[key()])} · 待填待审</span><span>4类文案</span></div><div class="template-actions"><button class="outline" data-scene="${s.id}">查看模板 ${icon('arrow')}</button><button data-download-scene="${s.id}" class="download-link">下载 ↓</button></div></article>`;
+ return `<article class="card template-card"><div class="article-topline"><div class="tags"><span class="template-id">${esc(s.id)}</span></div></div><h3><button class="title-button" data-scene="${s.id}">${esc(s.name)}</button></h3><p class="template-summary">${esc(m.alert_brief?.preview.summary || m.brief?.preview.summary || m.summary)}</p><div class="template-meta"><span>${esc(MODULES[key()])} · 待填待审</span><span>4类文案</span></div><div class="template-actions"><button class="outline" data-scene="${s.id}">查看模板 ${icon('arrow')}</button><button data-download-scene="${s.id}" class="download-link">下载 ↓</button></div></article>`;
 }
 function matchesActual(k) {
  const a=actual(k);
@@ -80,8 +109,9 @@ function render() {
  $('#period-control').hidden=state.view!=='market'; $('#view-label').hidden=state.view==='market'; $('#view-label').textContent=state.view==='research'?'保留机构、作者、日期与原始来源':state.view==='alert'?'先核实事实，再解释可能影响':'';
  const ks=[key()];
  const actualKeys=ks.filter(matchesActual), scenarios=visibleScenarios();
- const showStandard=key()==='daily'&&(!state.query||JSON.stringify(dailyStandard).toLowerCase().includes(state.query.toLowerCase()));
- $('#article-list').innerHTML=(showStandard?standardCard():'')+actualKeys.map(k=>k==='daily'?`<details class="current-reference"><summary>本期参考 · ${esc(actual(k).brief?.title || actual(k).title)}<span>展开 ↓</span></summary>${actualCard(k)}</details>`:actualCard(k)).join('');
+ const selectedStandard=key()==='daily'?dailyStandard:key()==='alert'?alertStandard:null;
+ const showStandard=!!selectedStandard&&(!state.query||JSON.stringify(selectedStandard).toLowerCase().includes(state.query.toLowerCase()));
+ $('#article-list').innerHTML=(showStandard?(key()==='daily'?standardCard():alertStandardCard()):'')+actualKeys.map(k=>['daily','alert'].includes(k)?`<details class="current-reference"><summary>本期参考 · ${esc(actual(k).brief?.title || actual(k).title)}<span>展开 ↓</span></summary>${actualCard(k)}</details>`:actualCard(k)).join('');
  $('#template-section').hidden=false; $('#template-total').textContent=scenarios.length;
  $('#template-grid').innerHTML=scenarios.slice(0,state.limit).map(templateCard).join('');
  $('#load-more').hidden=state.limit>=scenarios.length; $('#load-more').textContent=`加载更多情景（还有${Math.max(0,scenarios.length-state.limit)}种） ↓`;
@@ -91,12 +121,14 @@ function render() {
 }
 function actualMarkdown(k) {
  const a=actual(k);
+ if(a.alert_brief) return `# ${a.title}\n\n> 内部草案 · 待机构审核\n\n${a.meta}\n\n${alertMarkdown(a.alert_brief)}\n## 数据与来源\n\n${edition.methodology}\n${sources(a).map(x=>'- '+x.name+'：'+x.url).join('\n')}\n\n版本：${edition.edition_id}`;
  if(a.brief) return `# ${a.brief.title}\n\n> 内部草案 · 待机构审核\n\n${a.meta}\n\n${briefMarkdown(a.brief)}\n## 内部沟通与核验\n\n可能影响：${a.impact}\n\n沟通参考：${a.talk}\n\n后续关注：${a.watch}\n\n## 数据与来源\n\n${edition.methodology}\n${sources(a).map(x=>'- '+x.name+'：'+x.url).join('\n')}\n\n版本：${edition.edition_id}`;
  return `# ${a.title}\n\n> 内部草案 · 待机构审核\n\n${a.meta}\n\n## ${k==='research'?'核心观点':'发生了什么'}\n${a.fact}\n\n## 可能影响与风险\n${a.impact}\n\n## 沟通参考\n${a.talk}\n\n## 关注\n${a.watch}\n\n## 风险提示\n${edition.risk}\n\n## 来源\n${sources(a).map(s=>'- '+s.name+'：'+s.url).join('\n')}\n\n${edition.methodology}\n核对日期：${edition.verified_on}；版本：${edition.edition_id}\n`;
 }
 function asList(v) { return Array.isArray(v)?v:[v].filter(Boolean); }
 function moduleMarkdown(s,k) {
  const m=s.modules[k];
+ if(m.alert_brief) return `## ${MODULES[k]}\n\n${m.meta}\n\n${alertMarkdown(m.alert_brief)}\n## 内部核验与审查\n\n启用条件：${m.trigger}\n\n来源要求：${m.sources}\n\n避免表述：${m.avoid}\n\n审核说明：${m.review_note}\n`;
  if(m.brief) return `## ${MODULES[k]}\n\n### ${m.brief.title}\n\n${m.meta}\n\n${briefMarkdown(m.brief)}\n## 内部沟通与核验\n\n适用条件：${m.trigger}\n\n可能影响：${m.impact}\n\n沟通参考：${m.talk}\n\n后续关注：${m.watch}\n\n来源要求：${m.sources}\n\n避免表述：${m.avoid}\n\n审核说明：${m.review_note}\n`;
  return `## ${MODULES[k]}\n\n### ${m.title}\n\n${m.meta}\n\n摘要：${m.summary}\n\n启用条件：${m.trigger}\n\n关键指标：\n${m.metrics.map(x=>'- '+x.label+'：'+x.value).join('\n')}\n\n### ${k==='research'?'核心观点':'发生了什么'}\n${m.fact}\n\n### 可能影响与风险\n${m.impact}\n\n### 沟通参考\n${m.talk}\n\n### 后续关注\n${m.watch}\n\n### 来源要求\n${asList(m.sources).map(x=>'- '+x).join('\n')}\n\n### 避免表述\n${asList(m.avoid).map(x=>'- '+x).join('\n')}\n\n### 风险提示\n${m.risk}\n\n### 审核说明\n${m.review_note}\n`;
 }
@@ -127,7 +159,7 @@ function renderSceneReader() {
  const s=library.scenarios.find(x=>x.id===state.reader.id),m=s.modules[state.module];
  $('#reader-kicker').textContent=s.id+' · 待填待审'; $('#reader-title').textContent=s.name; $('#module-switch').hidden=false;
  $('#module-switch').innerHTML=Object.entries(MODULES).map(([k,label])=>`<button data-module="${k}" class="${state.module===k?'selected':''}" aria-pressed="${state.module===k}">${label}</button>`).join('');
- $('#reader-body').innerHTML=`<h3 class="module-title">${esc(m.brief?.title || m.title)}</h3><div class="article-meta">${esc(m.meta)}</div>${m.brief?'':`<div class="summary"><strong>模板摘要</strong>${esc(m.summary)}</div><p class="trigger"><strong>启用条件：</strong>${esc(m.trigger)}</p>`}${bodySections(m,state.module,true)}<details class="review-details"><summary>来源要求与审查要点</summary>${m.brief?`<h4>启用条件</h4><p>${esc(m.trigger)}</p>`:''}<h4>来源要求</h4><ul>${asList(m.sources).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>避免表述</h4><ul>${asList(m.avoid).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(m.review_note)}</p><p>当前为模板，〔字段〕须补齐并经审核；不满足来源或触发条件时不发布。本库覆盖常见情景，实际市场可能出现组合情景，使用时需人工判断。</p></details>`;
+ $('#reader-body').innerHTML=`<h3 class="module-title">${esc(m.brief?.title || m.title)}</h3><div class="article-meta">${esc(m.meta)}</div>${(m.brief||m.alert_brief)?'':`<div class="summary"><strong>模板摘要</strong>${esc(m.summary)}</div><p class="trigger"><strong>启用条件：</strong>${esc(m.trigger)}</p>`}${bodySections(m,state.module,true)}<details class="review-details"><summary>来源要求与审查要点</summary>${(m.brief||m.alert_brief)?`<h4>启用条件</h4><p>${esc(m.trigger)}</p>`:''}<h4>来源要求</h4><ul>${asList(m.sources).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>避免表述</h4><ul>${asList(m.avoid).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(m.review_note)}</p><p>当前为模板，〔字段〕须补齐并经审核；不满足来源或触发条件时不发布。本库覆盖常见情景，实际市场可能出现组合情景，使用时需人工判断。</p></details>`;
  $('#reader-actions').innerHTML=`<button class="primary" data-copy-scene="${s.id}">复制本模块草案</button><button class="outline" data-download-module="${s.id}">下载本模块 ↓</button><button class="outline" data-download-scene="${s.id}">下载全部4类 ↓</button>`;
 }
 function showReader() { if(!$('#reader').open) { $('#reader').showModal();document.body.classList.add('dialog-open'); } $('#reader-body').scrollTop=0; }
@@ -137,6 +169,9 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('button,a');if(!b) return;
  if(b.dataset.view) navigate(b.dataset.view);
  if(b.dataset.period) {state.period=b.dataset.period;state.limit=12;history.replaceState(null,'','#'+state.period);render();}
+ if(b.dataset.alertStandard) openAlertStandard();
+ if(b.dataset.copyAlertStandard) copyText(alertMarkdown(alertStandard));
+ if(b.dataset.copyAlertPreview) {const standard=b.dataset.copyAlertPreview==='standard';const a=standard?alertStandard:(state.reader?.type==='scene'?library.scenarios.find(x=>x.id===state.reader.id).modules[state.module]:actual('alert')).alert_brief;copyText(`${standard?'【用户提供示例 · 待填待审】\n'+alertStandard.notice:'【内部草案 · 待机构审核】'}\n\n${a.preview.title}\n\n${a.preview.summary}\n\n${a.preview.risk}`);}
  if(b.dataset.standard) openStandard();
  if(b.dataset.copyStandard) copyText(standardMarkdown());
  if(b.dataset.copyStandardPreview) {const s=dailyStandard;copyText(`【用户提供示例 · 待核验】\n${s.notice}\n\n标题：${s.preview.title}\n\n摘要：${s.preview.summary}\n\n提示：${s.preview.risk}`);}
@@ -155,10 +190,17 @@ $('#reader-close').addEventListener('click',()=>$('#reader').close());
 $('#reader').addEventListener('close',()=>{document.body.classList.remove('dialog-open');state.reader=null;});
 $('#reader').addEventListener('click',e=>{if(e.target===$('#reader')) {const r=$('#reader').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('#reader').close();}});
 $('#overview-read').addEventListener('click',()=>openActual(state.period));
+function readRoute() {
+ const hash=location.hash.slice(1);
+ if(['daily','weekly'].includes(hash)){state.view='market';state.period=hash;}
+ else if(['market','research','alert'].includes(hash))state.view=hash;
+ else if(hash==='saved'){state.view='market';state.period='daily';history.replaceState(null,'','#daily');}
+}
+window.addEventListener('hashchange',()=>{if($('#reader').open)$('#reader').close();readRoute();state.query='';state.limit=12;$('#search').value='';render();});
 async function init() {
  document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
- const hash=location.hash.slice(1);if(hash==='saved')history.replaceState(null,'','#daily');if(['daily','weekly'].includes(hash))state.period=hash;else if(['market','research','alert'].includes(hash))state.view=hash;
- try {const results=await Promise.all(['market-edition.json','template-library.json','daily-standard.json'].map(async path=>{const r=await fetch(path);if(!r.ok)throw Error(path);return r.json();}));[edition,library,dailyStandard]=results;if(library.scenarios.length!==60)throw Error('模板库不完整');render();}
+ readRoute();
+ try {const results=await Promise.all(['market-edition.json','template-library.json','daily-standard.json','alert-standard.json'].map(async path=>{const r=await fetch(path);if(!r.ok)throw Error(path);return r.json();}));[edition,library,dailyStandard,alertStandard]=results;if(library.scenarios.length!==60)throw Error('模板库不完整');render();}
  catch {$('#loading').textContent='内容暂时未能载入，请刷新页面重试。';}
 }
 init();
