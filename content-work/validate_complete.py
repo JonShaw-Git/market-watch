@@ -39,3 +39,12 @@ for period in edition['periods'].values():
     assert refs <= source_ids and refs <= set(a['source_ids'])
     assert b['headline'] and b['preview']['summary'] and '本金损失风险' in b['risk']
 print('PASS: 60 scenarios, 240 complete modules, 60 Markdown files in ZIP, required resources present')
+
+standard=json.loads((dist/'daily-standard.json').read_text())
+assert standard['status']=='unverified_user_sample' and standard['sample_date']=='2026-10-21'
+assert len(standard['glance'])==3 and len(standard['events'])==4 and len(standard['reuse'])==4
+assert '待核验' in standard['notice'] and '不代表已通过' in standard['notice']
+with zipfile.ZipFile(dist/'market-template-library.zip') as z:
+    for name in ('daily-standard.json','daily-standard.md'):
+        assert z.read(name)==(dist/name).read_bytes()
+print('PASS: standard sample, original preview/reuse notes, and ZIP agree')

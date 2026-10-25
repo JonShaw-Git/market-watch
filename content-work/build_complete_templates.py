@@ -10,13 +10,14 @@ import json
 import re
 import shutil
 import zipfile
+from build_daily_standard import STANDARD, markdown as standard_markdown
 from brief_format import template_brief, brief_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 OUT = DIST / 'template-files'
-VERSION = '2.1.0'
-MODULE_NAMES = {'daily': '每日解读', 'weekly': '每周回顾', 'research': '研报精选', 'alert': '异动点评'}
+VERSION = '2.2.0'
+MODULE_NAMES = {'daily': '每日简评', 'weekly': '每周回顾', 'research': '研报精选', 'alert': '异动点评'}
 COMMON_RISK = '市场有风险，理财非存款。市场指标不等于具体产品收益；产品可能发生本金损失，过往表现不代表未来。涉及具体产品的信息以管理人及销售机构正式披露为准。'
 COMMON_SOURCE = '记录〔Wind表名/指标代码〕、〔字段名称〕、〔单位〕、〔市场/币种/估值口径〕、〔数据时点与时区〕、〔比较基准〕及〔提取时间〕；使用机构已有数据服务供数，经校验后填入，不代表本模板已连接Wind。事件须附正式原文链接，产品须附管理人或销售机构正式披露。'
 COMMON_REVIEW = '内部模板草案，待本机构业务、合规及消保审核。所有〔字段〕须完整核实；事实、解释与预期分开；原因不明时写明尚待核实。不得自动对客发布。'
@@ -290,7 +291,7 @@ def module_for(scene, kind):
         status='draft', audience='internal', review_note=COMMON_REVIEW,
     )
     if kind == 'daily':
-        base['title'] = f'每日解读｜{name}'
+        base['title'] = f'每日简评｜{name}'
         if event_like:
             base['summary'] = f'跟进{name}的已确认信息与后续安排，核实时间为〔核实时间〕。'
             base['meta'] = '〔内容日期〕 · 核实截至〔核实时间与时区〕 · 内部模板待审核'
@@ -438,7 +439,7 @@ def main():
     (DIST / 'template-library.json').write_text(payload)
     (OUT / 'template-library.json').write_text(payload)
     index = ['# 看市场｜60种常见情景模板索引', '',
-             '版本：' + VERSION + '。状态：内部草案；全部数据均为〔字段〕占位。每日解读、每周回顾、研报精选、异动点评共240套内容。', '',
+             '版本：' + VERSION + '。状态：内部草案；全部数据均为〔字段〕占位。每日简评、每周回顾、研报精选、异动点评共240套内容。', '',
              '60种常见情景不是对未来的穷尽枚举。遇到复合事件，可并列使用相关情景，统一数据口径后人工编辑；不宜强行归入单一模板。', '',
              '文件组织：scenarios/每个情景一份完整文件（含四类模块）；template-library.json供页面或内容系统读取，页面可据此生成单模块下载文件。', '',
              '| 编号 | 情景 | 分类 | 完整文案 |', '| --- | --- | --- | --- |']
@@ -475,10 +476,14 @@ def main():
 发布保存数据快照、引用来源、规则版本、作者与审核记录、文案版本及有效期。来源或数值变化时重新核实结论；更正醒目标识原值、新值、原因和时间，保留历史版本。来源许可及Wind数据使用范围按机构已取得的授权执行。
 '''
     (OUT / '01_审核与消保说明.md').write_text(review)
+    (DIST / 'daily-standard.json').write_text(json.dumps(STANDARD, ensure_ascii=False, indent=2) + '\n')
+    (DIST / 'daily-standard.md').write_text(standard_markdown(STANDARD))
     with zipfile.ZipFile(DIST / 'market-template-library.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(OUT.rglob('*')):
             if path.is_file():
                 archive.write(path, str(path.relative_to(OUT)))
+        archive.write(DIST / 'daily-standard.json', 'daily-standard.json')
+        archive.write(DIST / 'daily-standard.md', 'daily-standard.md')
     validate(library, original)
     print(f'Generated {len(scenes)} scenarios, {len(scenes)*4} independent modules, {len(list(OUT.rglob("*.md")))} Markdown files.')
     print(DIST / 'template-library.json')

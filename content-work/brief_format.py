@@ -32,9 +32,9 @@ def template_brief(scene, kind, module):
                    'text': '〔正式发生或披露时间、已确认事实及来源；无新增已核实事项时写明“本期暂无新增已核实事项”，不补写传闻〕',
                    'source_ids': []})
     risk = '以上为市场观察参考，不构成投资建议。' + module['risk']
-    return {'format_version': FORMAT_VERSION, 'title': '市场简评｜' + span,
+    return {'format_version': FORMAT_VERSION, 'title': ('每周回顾｜' if weekly else '每日简评｜') + span,
             'headline': headline, 'glance': glance, 'events': events, 'risk': risk,
-            'preview': {'title': '市场简评｜' + span, 'summary': headline, 'risk': PREVIEW_RISK}}
+            'preview': {'title': ('每周回顾｜' if weekly else '每日简评｜') + span, 'summary': headline, 'risk': PREVIEW_RISK}}
 
 
 def edition_brief(kind, period, research):
@@ -70,9 +70,9 @@ def edition_brief(kind, period, research):
          'source_ids': research['source_ids']},
     ]
     risk = '以上内容来源于公开市场资料，仅供市场观察参考，不构成投资建议。市场有风险，理财非存款，理财产品存在本金损失风险。市场指标不等于具体产品表现；具体产品信息以正式披露为准。对客使用须经本机构审核。'
-    return {'format_version': FORMAT_VERSION, 'title': '市场简评｜' + date,
+    return {'format_version': FORMAT_VERSION, 'title': ('每周回顾｜' if weekly else '每日简评｜') + date,
             'headline': headline, 'glance': glance, 'events': events, 'risk': risk,
-            'preview': {'title': '市场简评｜' + date, 'summary': headline, 'risk': PREVIEW_RISK}}
+            'preview': {'title': ('每周回顾｜' if weekly else '每日简评｜') + date, 'summary': headline, 'risk': PREVIEW_RISK}}
 
 
 def brief_markdown(brief):
